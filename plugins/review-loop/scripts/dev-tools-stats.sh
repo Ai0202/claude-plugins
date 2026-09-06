@@ -92,6 +92,24 @@ echo "$DATA" | jq -s '
   }'
 
 echo ""
+echo "== 4. /build(ATDD ループ)=="
+echo "  完走率が高く、平均周回が少ない = 計画とテストが最初から噛み合っている"
+echo "$DATA" | jq -s '
+  ([.[] | select(.event=="build.start")]) as $s |
+  ([.[] | select(.event=="build.done")]) as $d |
+  ([.[] | select(.event=="build.abort")]) as $a |
+  ([.[] | select(.event=="tests.run")]) as $t |
+  {
+    "開始回数": ($s | length),
+    "完走回数": ($d | length),
+    "打ち切り回数": ($a | length),
+    "完走率(%)": (if ($s|length)>0 then (($d|length) / ($s|length) * 100 | round) else null end),
+    "平均周回数(完走分)": (if ($d|length)>0 then (([$d[].iterations] | add) / ($d|length) * 10 | round / 10) else null end),
+    "テスト実行回数": ($t | length),
+    "テスト失敗率(%)": (if ($t|length)>0 then (([$t[] | select(.exit != 0)] | length) / ($t|length) * 100 | round) else null end)
+  }'
+
+echo ""
 echo "== リポジトリ別(レビュー実行数 / ゲート通過数)=="
 echo "$DATA" | jq -s -r '
   group_by(.repo) | map(
@@ -110,4 +128,8 @@ echo "$DATA" | jq -s -r '
    elif .event=="test_plan.created" then " cases=\(.cases)"
    elif .event=="pr_docs.done" then " pr=#\(.pr) comments=\(.comments)"
    elif .event=="pr_docs.prompt" then " pr=#\(.pr)"
+   elif .event=="build.iteration" then " \(.iteration) [\(.phase)] tests=\(.tests_green) review=\(.reviewed) pr=\(.pr_ok)"
+   elif .event=="build.done" then " iterations=\(.iterations)"
+   elif .event=="build.abort" then " iterations=\(.iterations) tests=\(.tests_green) review=\(.reviewed) pr=\(.pr_ok)"
+   elif .event=="tests.run" then " exit=\(.exit)"
    else "" end)'

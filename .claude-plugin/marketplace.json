@@ -18,6 +18,11 @@
       "name": "pr-docs",
       "source": "./plugins/pr-docs",
       "description": "PR の説明を実装内容から書き直し、Before/After の図つき新卒向け解説を PR コメントで付ける(Stop フックで追随を促す)"
+    },
+    {
+      "name": "build",
+      "source": "./plugins/build",
+      "description": "ATDD の red-green ループを 1 本に繋ぐオーケストレータ(/build)。完了条件を機械判定しながら回す。test-plan / review-loop / pr-docs が必要"
     }
   ]
 }

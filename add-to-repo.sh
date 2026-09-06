@@ -28,7 +28,8 @@ SNIPPET=$(cat << JSON
   "enabledPlugins": {
     "review-loop@dev-tools": true,
     "test-plan@dev-tools": true,
-    "pr-docs@dev-tools": true
+    "pr-docs@dev-tools": true,
+    "build@dev-tools": true
   }
 }
 JSON
