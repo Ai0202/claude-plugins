@@ -8,9 +8,14 @@
 #
 # 通す条件: 現在の差分ハッシュがレビュー合格マーカーと一致していること。
 # さらに .claude/specs/<branch>.md(テスト計画)があるブランチでは、テスト合格マーカーの一致も必要。
+# テスト計画の「## デザイン」節に figma.com の参照があるブランチでは、デザイン突合マーカーの一致も必要。
 set -uo pipefail
 
 INPUT=$(cat)
+
+# --- 許可ユーザー限定(.claude/dev-tools.json があればその人だけ) ---
+GDIR="$(cd "$(dirname "$0")" && pwd)"
+bash "$GDIR/dev-tools-guard.sh" || exit 0
 
 if command -v jq >/dev/null 2>&1; then
   CMD=$(echo "$INPUT" | jq -r '.tool_input.command // ""' 2>/dev/null || echo "")
@@ -71,6 +76,15 @@ if [ -f "$SPEC" ]; then
     "$LOG" gate.block action="$ACTION" reason=tests >/dev/null 2>&1 || true
     echo "テスト計画 ($SPEC) があるブランチです。/test-check を実行して計画どおりのテストが通ることを確認してから再度 '$CMD' を実行してください。" >&2
     exit 2
+  fi
+  # --- デザイン参照(Figma)があるブランチはデザイン突合の合格も必要 ---
+  if awk '/^## /{s=($0 ~ /^## デザイン/)} s && /figma\.com\//{f=1} END{exit !f}' "$SPEC"; then
+    DESIGN_MARKER="$GIT_DIR/claude-design-passed"
+    if [ ! -f "$DESIGN_MARKER" ] || [ "$(cat "$DESIGN_MARKER")" != "$HASH" ]; then
+      "$LOG" gate.block action="$ACTION" reason=design >/dev/null 2>&1 || true
+      echo "テスト計画 ($SPEC) に Figma の参照があるブランチです。/design-check を実行して画面が Figma と一致することを確認してから再度 '$CMD' を実行してください。" >&2
+      exit 2
+    fi
   fi
 fi
 

@@ -9,7 +9,7 @@ allowed-tools: Bash, Read, Grep, Glob, Write, Edit
 
 ## 手順
 
-1. タスクの内容を把握する。優先順位: $ARGUMENTS → 会話の文脈 → `gh pr view --json title,body`(ドラフト PR があれば) → 参照されたチケット・Slack・Notion の依頼文 → 関連する既存仕様(docs/, README, CLAUDE.md)
+1. タスクの内容を把握する。優先順位: $ARGUMENTS → 会話の文脈 → `gh pr view --json title,body`(ドラフト PR があれば) → 参照されたチケット・Slack・Notion の依頼文 → 関連する既存仕様(docs/, README, CLAUDE.md)。この中に figma.com のリンクがあれば、画面ごとに「デザイン(Figma)」節へ書く(design-check プラグインが実装後にその画面を Figma と突合する)
 2. リポジトリのテスト環境を確認する: テストフレームワーク(pytest / jest / vitest / playwright 等)、テストの置き場所、実行コマンド(package.json / Makefile / CLAUDE.md から)。**分からなければ推測せず「要確認」に書く**
 3. 不明点が実装の成否に関わる場合だけ、計画を書く前にユーザーに質問する(最大3問。細部は「要確認」として計画に残してよい)
 4. 現在のブランチ名を取得し、`.claude/specs/<ブランチ名のスラッシュを-に置換>.md` に以下の形式で書く:
@@ -33,6 +33,10 @@ allowed-tools: Bash, Read, Grep, Glob, Write, Edit
 ## 変更してはいけないこと(非目標)
 - NG-1: ...
 
+## デザイン(Figma)
+Figma のある画面だけ書く(無ければこの節ごと省く)。/design-check と PR ゲートがここを読む。
+- <画面名>: <Figma のフレーム URL> → <実装 URL またはルート・コンポーネント>(<幅>px)
+
 ## 要確認(仕様が曖昧な点)
 - Q-1: ...
 ```
@@ -53,6 +57,7 @@ allowed-tools: Bash, Read, Grep, Glob, Write, Edit
 | 静的 | 型チェック・lint は既存の CI に任せる(計画に書かない) | — |
 
 - E2E は Playwright を前提にし、Playwright MCP が使える環境では実行の様子を GIF に残せる旨を計画に書く(`.claude/e2e/<branch>/`)
+- 画面の見た目(要素・文言・色・余白)が Figma どおりかは TC にしない。「デザイン(Figma)」節に参照を書き、/design-check に任せる
 - 既存のテスト基盤(fixture、factory、テスト DB の作り方)を先に Grep で探し、計画の「テスト実行」と「置き場所」に反映する
 
 ## ルール

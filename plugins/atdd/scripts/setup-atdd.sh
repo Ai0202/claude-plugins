@@ -79,6 +79,7 @@ Notion: ${TASK_URL:-(未作成。PLAN の最初に register-task で作る)}
 - [ ] PLAN: テスト計画の承認 → .claude/specs/${BRANCH//\//-}.md と Notion
 - [ ] RED: TC ごとの失敗するテスト
 - [ ] GREEN: 実装
+- [ ] DESIGN: /design-check 合格(テスト計画に Figma があるときだけ。無ければ「対象外」と書いてチェック)
 - [ ] REVIEW: /review-loop 合格
 - [ ] PR: push → ドラフト PR → /pr-docs → Notion に PR リンク
 

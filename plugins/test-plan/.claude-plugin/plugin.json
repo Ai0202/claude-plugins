@@ -1,5 +1,5 @@
 {
   "name": "test-plan",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "実装前にテスト計画(/test-plan)を作り、実装後に計画どおりのテストが存在・実行・合格しているかを確認する(/test-check)。仕様担保のためのプラグイン"
 }

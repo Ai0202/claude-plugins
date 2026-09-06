@@ -12,6 +12,10 @@ set -uo pipefail
 
 INPUT=$(cat)
 
+# --- 許可ユーザー限定(.claude/dev-tools.json があればその人だけ) ---
+GDIR="$(cd "$(dirname "$0")" && pwd)"
+bash "$GDIR/dev-tools-guard.sh" || exit 0
+
 # 既にブロック済みなら止めない(無限ループ防止)
 if command -v jq >/dev/null 2>&1; then
   ACTIVE=$(echo "$INPUT" | jq -r '.stop_hook_active // false' 2>/dev/null || echo "false")

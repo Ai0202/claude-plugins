@@ -101,11 +101,13 @@ Claude Code内で:
 対象リポジトリごとに1回だけ:
 
 ```bash
-/path/to/claude-plugins/add-to-repo.sh Ai0202/claude-plugins
+/path/to/claude-plugins/add-to-repo.sh --only-me Ai0202/claude-plugins
 git add .claude && git commit -m "chore: enable dev-tools plugins"
 ```
 
-書き込まれるのはマーケットプレイスへのポインタ約10行と、空のログファイル `.claude/dev-tools.log.jsonl` だけ。ルール本体はコピーされない。
+書き込まれるのはマーケットプレイスへのポインタ約10行、空のログファイル `.claude/dev-tools.log.jsonl`、そして `--only-me` のときは `.claude/dev-tools.json`(許可ユーザー一覧)。ルール本体はコピーされない。
+
+**`.claude/settings.json` はリポジトリの共有設定なので、そのリポジトリを開く全員の Claude Code にプラグインが入る。** `--only-me` を付けると、フック(PR ready ゲート、pr-docs / atdd の Stop フック)は `.claude/dev-tools.json` に書かれた人(GitHub ログイン名・git のメール・名前のどれか)だけで動き、他の人では素通りになる。コマンド(/atdd 等)は誰でも明示的に打てば使える。自分だけで試す段階ではこれを使う。一覧に人を足せば段階的に広げられる。
 
 ## pr-docs の Stop フックが動く条件
 
@@ -207,7 +209,7 @@ bash "$(find ~/.claude/plugins -path '*review-loop*' -name change-failure-rate.s
 | `plugins/review-loop/commands/` | /review-loop(ティア判定つき自律ループ)、/self-review(単発・修正なし)、/dev-stats(利用状況) |
 | `plugins/review-loop/agents/` | security / performance / simplicity の3レビュアー |
 | `plugins/review-loop/hooks/hooks.json` | PreToolUse(Bash)フック: PR をレビュー可能にするコマンドをゲート |
-| `plugins/review-loop/scripts/` | 比較元判定・差分取得・ゲート・合格マーカー・イベントログ・集計・変更障害率 |
+| `plugins/review-loop/scripts/` | 比較元判定・差分取得・ゲート・合格マーカー・イベントログ・集計・変更障害率・許可ユーザー判定(dev-tools-guard.sh) |
 | `plugins/test-plan/commands/` | /test-plan(計画作成)、/test-check(突合・実行確認) |
 | `plugins/test-plan/scripts/` | 比較元判定・差分取得・テスト実行と結果記録(run-tests.sh)・テスト合格マーカー・イベントログ |
 | `plugins/atdd/commands/` | /atdd(ATDD オーケストレータ)、/cancel-atdd |

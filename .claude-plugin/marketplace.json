@@ -15,6 +15,11 @@
       "description": "テスト計画による仕様担保(/test-plan で計画 → /test-check で突合)"
     },
     {
+      "name": "design-check",
+      "source": "./plugins/design-check",
+      "description": "画面の要素が Figma と一致しているかの突合(/design-check。Figma MCP + ブラウザ MCP で DOM とスクリーンショットを比較)"
+    },
+    {
       "name": "pr-docs",
       "source": "./plugins/pr-docs",
       "description": "PR の説明を実装内容から書き直し、Before/After の図つき新卒向け解説を PR コメントで付ける(Stop フックで追随を促す)"

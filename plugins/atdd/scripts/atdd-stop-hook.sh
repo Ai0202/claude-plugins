@@ -8,12 +8,18 @@
 #   2. 品質レビュー合格: claude-review-passed が現在の差分ハッシュと一致
 #   3. PR が最新: 追跡ファイルに未コミット変更が無く、push 済みで、claude-pr-docs が HEAD と一致
 #      (PR が無い・gh が使えない場合は 3 を免除)
+#   4. デザイン一致: テスト計画の「## デザイン」節に figma.com の参照があれば、claude-design-passed が現在の差分ハッシュと一致
+#      (参照が無ければ 4 を免除)
 # 打ち切り: iteration >= max_iterations
 # 一時停止: 直前の Claude の発言に <atdd>PAUSE</atdd> が含まれる(ユーザーへの質問待ち)。状態は残す
 set -uo pipefail
 
 INPUT=$(cat)
 git rev-parse --is-inside-work-tree >/dev/null 2>&1 || exit 0
+# --- 許可ユーザー限定(.claude/dev-tools.json があればその人だけ) ---
+GDIR="$(cd "$(dirname "$0")" && pwd)"
+bash "$GDIR/dev-tools-guard.sh" || exit 0
+
 ROOT=$(git rev-parse --show-toplevel)
 STATE="$ROOT/.claude/atdd.local.md"
 [ -f "$STATE" ] || exit 0
@@ -64,6 +70,14 @@ fi
 REVIEWED=false
 [ -f "$GIT_DIR/claude-review-passed" ] && [ "$(cat "$GIT_DIR/claude-review-passed")" = "$HASH" ] && REVIEWED=true
 
+HAS_DESIGN=false
+$HAS_SPEC && awk '/^## /{s=($0 ~ /^## デザイン/)} s && /figma\.com\//{f=1} END{exit !f}' "$SPEC" && HAS_DESIGN=true
+DESIGN_OK=true
+if $HAS_DESIGN; then
+  DESIGN_OK=false
+  [ -f "$GIT_DIR/claude-design-passed" ] && [ "$(cat "$GIT_DIR/claude-design-passed")" = "$HASH" ] && DESIGN_OK=true
+fi
+
 PR_OK=true; PR_NUM=""
 if command -v gh >/dev/null 2>&1; then
   PR_NUM=$(gh pr view "$BRANCH" --json number,state -q 'select(.state=="OPEN") | .number' 2>/dev/null || echo "")
@@ -78,18 +92,18 @@ if [ -n "$PR_NUM" ]; then
   fi
 fi
 
-if [ -n "$BODY" ] && $TESTS_GREEN && $REVIEWED && $PR_OK; then
+if [ -n "$BODY" ] && $TESTS_GREEN && $DESIGN_OK && $REVIEWED && $PR_OK; then
   rm -f "$STATE"
   "$LOG" atdd.done iterations="$ITER" >/dev/null 2>&1 || true
-  echo "✅ atdd: 完了条件をすべて満たしました(テスト緑・レビュー合格・PR 最新)。ループを終了します。"
+  echo "✅ atdd: 完了条件をすべて満たしました(テスト緑・$($HAS_DESIGN && echo 'デザイン一致・')レビュー合格・PR 最新)。ループを終了します。"
   exit 0
 fi
 
 # --- 打ち切り ---
 if [ "$MAX" -gt 0 ] && [ "$ITER" -ge "$MAX" ]; then
   rm -f "$STATE"
-  "$LOG" atdd.abort iterations="$ITER" tests_green="$TESTS_GREEN" reviewed="$REVIEWED" pr_ok="$PR_OK" >/dev/null 2>&1 || true
-  echo "🛑 atdd: 最大 ${MAX} 周に達しました。未達: tests_green=${TESTS_GREEN} reviewed=${REVIEWED} pr_ok=${PR_OK} 。残件をユーザーに報告して止まります。" >&2
+  "$LOG" atdd.abort iterations="$ITER" tests_green="$TESTS_GREEN" design_ok="$DESIGN_OK" reviewed="$REVIEWED" pr_ok="$PR_OK" >/dev/null 2>&1 || true
+  echo "🛑 atdd: 最大 ${MAX} 周に達しました。未達: tests_green=${TESTS_GREEN} design_ok=${DESIGN_OK} reviewed=${REVIEWED} pr_ok=${PR_OK} 。残件をユーザーに報告して止まります。" >&2
   exit 0
 fi
 
@@ -106,17 +120,20 @@ elif ! $HAS_SPEC; then
 elif ! $TESTS_GREEN; then
   PHASE="green"
   REASON="テストがまだ緑ではありません(最後の run-tests の結果が失敗、または実行後にコードが変わっています)。テスト計画の各 TC にテストがあることを確認し、無ければ先に失敗するテストを書き(RED)、実装してから test-plan の run-tests.sh を実行して exit 0 を確認してください(GREEN)。テストを弱めたり skip にして通さないこと。"
+elif ! $DESIGN_OK; then
+  PHASE="design"
+  REASON="テストは緑です。テスト計画に Figma の参照があるので、次は design-check:design-check スキルで画面を Figma と突合し、Critical と Warning(要素の欠落・文言違い・色やタイポのずれ)を直して合格マーカーを書いてください。修正でコードが変わったら run-tests.sh をもう一度実行してください。"
 elif ! $REVIEWED; then
   PHASE="review"
-  REASON="テストは緑です。次は review-loop:review-loop スキルで品質レビュー(セキュリティ/パフォーマンス/シンプルさ)を回し、Critical と Warning を解消して合格マーカーを書いてください。修正でコードが変わったら run-tests.sh をもう一度実行してください。"
+  REASON="テストは緑$($HAS_DESIGN && echo '、デザインも一致')です。次は review-loop:review-loop スキルで品質レビュー(セキュリティ/パフォーマンス/シンプルさ)を回し、Critical と Warning を解消して合格マーカーを書いてください。修正でコードが変わったら run-tests.sh$($HAS_DESIGN && echo ' と /design-check')をもう一度実行してください。"
 else
   PHASE="pr"
   REASON="テスト緑・レビュー合格です。変更をコミットして push し、PR が無ければ c-create-pr でドラフト PR を作り、pr-docs:pr-docs スキルで PR 本文と解説コメントを更新してください。"
 fi
 
-REASON="$REASON 進めたら .claude/atdd.local.md の作業リストを更新すること(チェック・TC 状況・決めたこと)。フェーズの区切り(PLAN 承認 / RED / GREEN / REVIEW 合格 / PR)では Notion タスク${TASK_URL:+($TASK_URL)}のチェックリスト・進捗ログも書き戻すこと。"
-"$LOG" atdd.iteration iteration="$NEXT" phase="$PHASE" tests_green="$TESTS_GREEN" reviewed="$REVIEWED" pr_ok="$PR_OK" >/dev/null 2>&1 || true
+REASON="$REASON 進めたら .claude/atdd.local.md の作業リストを更新すること(チェック・TC 状況・決めたこと)。フェーズの区切り(PLAN 承認 / RED / GREEN / DESIGN / REVIEW 合格 / PR)では Notion タスク${TASK_URL:+($TASK_URL)}のチェックリスト・進捗ログも書き戻すこと。"
+"$LOG" atdd.iteration iteration="$NEXT" phase="$PHASE" tests_green="$TESTS_GREEN" design_ok="$DESIGN_OK" reviewed="$REVIEWED" pr_ok="$PR_OK" >/dev/null 2>&1 || true
 
-jq -n --arg reason "$REASON" --arg msg "🔄 atdd $NEXT/$MAX [$PHASE${SIZE:+/$SIZE}] tests=$TESTS_GREEN review=$REVIEWED pr=$PR_OK | 作業リスト ${DONE_N}/$((DONE_N+TODO_N)) 完了 | ${TASK:0:60}${TASK_URL:+ | 📎 $TASK_URL}" \
+jq -n --arg reason "$REASON" --arg msg "🔄 atdd $NEXT/$MAX [$PHASE${SIZE:+/$SIZE}] tests=$TESTS_GREEN$($HAS_DESIGN && echo " design=$DESIGN_OK") review=$REVIEWED pr=$PR_OK | 作業リスト ${DONE_N}/$((DONE_N+TODO_N)) 完了 | ${TASK:0:60}${TASK_URL:+ | 📎 $TASK_URL}" \
   '{decision:"block", reason:$reason, systemMessage:$msg}'
 exit 0
