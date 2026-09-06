@@ -13,8 +13,10 @@
 #   必ず `hotfix` ラベル(リバートなら `revert`)を付ける。それだけ。
 #
 # 使い方:
-#   ./change-failure-rate.sh [-d 日数] [-a GitHubユーザー名] owner/repo [owner/repo ...]
+#   ./change-failure-rate.sh [-d 日数] [-a GitHubユーザー名] [-p タイトル正規表現] owner/repo [owner/repo ...]
 #   例: ./change-failure-rate.sh -d 30 -a your-name myorg/api myorg/frontend
+#       ./change-failure-rate.sh -d 30 -p '^(revert|hotfix)|障害|不具合|緊急|取り消し' myorg/api
+#   -p はタイトルの判定パターン(大文字小文字無視)。ラベル判定(hotfix / incident-fix / revert)は常に有効
 #
 # 前提: gh CLI がインストール済みで gh auth login 済みであること
 
@@ -22,12 +24,14 @@ set -euo pipefail
 
 DAYS=30
 AUTHOR="@me"
+PATTERN='^(revert|hotfix)'
 
-while getopts "d:a:" opt; do
+while getopts "d:a:p:" opt; do
   case $opt in
     d) DAYS="$OPTARG" ;;
     a) AUTHOR="$OPTARG" ;;
-    *) echo "Usage: $0 [-d days] [-a author] owner/repo [owner/repo ...]" >&2; exit 1 ;;
+    p) PATTERN="$OPTARG" ;;
+    *) echo "Usage: $0 [-d days] [-a author] [-p title-regex] owner/repo [owner/repo ...]" >&2; exit 1 ;;
   esac
 done
 shift $((OPTIND - 1))
@@ -42,7 +46,7 @@ SINCE=$(date -u -d "-${DAYS} days" +%Y-%m-%d 2>/dev/null || date -u -v-"${DAYS}"
 total_all=0
 fail_all=0
 
-printf "\n変更障害率レポート(過去 %s 日 / author: %s)\n" "$DAYS" "$AUTHOR"
+printf "\n変更障害率レポート(過去 %s 日 / author: %s / タイトル判定: %s)\n" "$DAYS" "$AUTHOR" "$PATTERN"
 printf "%s\n" "--------------------------------------------------------------"
 printf "%-40s %8s %8s %8s\n" "repo" "merged" "failures" "CFR"
 
@@ -53,9 +57,9 @@ for REPO in "$@"; do
 
   total=$(echo "$prs" | jq 'length')
 
-  failures=$(echo "$prs" | jq '[ .[] | select(
+  failures=$(echo "$prs" | jq --arg re "$PATTERN" '[ .[] | select(
       ( [.labels[].name] | map(ascii_downcase) | any(. == "hotfix" or . == "incident-fix" or . == "revert") )
-      or ( .title | ascii_downcase | test("^(revert|hotfix)") )
+      or ( .title | test($re; "i") )
     ) ] | length')
 
   if [ "$total" -gt 0 ]; then
@@ -85,9 +89,9 @@ if [ "$fail_all" -gt 0 ]; then
     gh pr list --repo "$REPO" --state merged --author "$AUTHOR" \
       --search "merged:>=${SINCE}" --limit 500 \
       --json number,title,labels,url | \
-    jq -r --arg repo "$REPO" '.[] | select(
+    jq -r --arg repo "$REPO" --arg re "$PATTERN" '.[] | select(
         ( [.labels[].name] | map(ascii_downcase) | any(. == "hotfix" or . == "incident-fix" or . == "revert") )
-        or ( .title | ascii_downcase | test("^(revert|hotfix)") )
+        or ( .title | test($re; "i") )
       ) | "  [\($repo)] #\(.number) \(.title)\n    \(.url)"'
   done
   echo ""

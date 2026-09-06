@@ -176,8 +176,8 @@ Claude 以外(例: Codex MCP)に任せたい観点は、その agent の本文�
 # 利用状況(ゲート通過率・レビュー収束・テスト計画カバー率)。-f で他リポジトリのログを合算できる
 bash "$(find ~/.claude/plugins -path '*review-loop*' -name dev-tools-stats.sh | head -1)" [-f ログ ...] [日数]
 
-# 変更障害率(hotfix / revert ラベルの PR 比率)
-bash "$(find ~/.claude/plugins -path '*review-loop*' -name change-failure-rate.sh | head -1)" -d 30 owner/repo
+# 変更障害率(hotfix / revert ラベル、またはタイトルが -p の正規表現に一致する PR の比率)
+bash "$(find ~/.claude/plugins -path '*review-loop*' -name change-failure-rate.sh | head -1)" -d 30 -p '^(revert|hotfix)|障害|不具合|緊急|取り消し' owner/repo
 ```
 
 「うまく使えているか」の読み方:
