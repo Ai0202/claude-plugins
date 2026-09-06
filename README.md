@@ -4,7 +4,7 @@
 
 | プラグイン | コマンド | 役割 |
 |---|---|---|
-| **review-loop** | `/review-loop` `/self-review` | コード品質。security / performance / simplicity の3観点で並列レビューし、修正まで自動で回す。PR をレビュー可能にする瞬間をゲートする |
+| **review-loop** | `/review-loop` `/self-review` `/dev-stats` | コード品質。security / performance / simplicity の3観点で並列レビューし、修正まで自動で回す。PR をレビュー可能にする瞬間をゲートする |
 | **test-plan** | `/test-plan` `/test-check` | 仕様担保。実装前にテスト計画を作り、実装後に「計画どおりのテストが存在・実行・合格しているか」を突合する |
 
 2つは独立していて、片方だけ入れても動く。接点は `.claude/specs/<branch>.md`(テスト計画)と `.git/` 内の合格マーカーだけ。
@@ -23,6 +23,8 @@ gh pr ready  … ここでゲートがマーカーを確認。未合格なら止
 ```
 
 ゲートが止めるのは **`gh pr ready` と `--draft` 無しの `gh pr create`** だけ。合格後に1行でもコードを変えると差分のハッシュが変わり、再度レビューが必要になる。
+
+ドラフト作成(`gh pr create --draft`)は止めないが、「その時点でレビュー済みだったか」は記録する。ドラフトの前にレビューしたいときは先に `/review-loop`(または `/self-review`)を実行すればよい。ドラフトも常にゲートしたいリポジトリでは `git config review-loop.gate-draft true`。
 
 ## アーキテクチャ
 
@@ -103,7 +105,13 @@ Claude 以外(例: Codex MCP)に任せたい観点は、その agent の本文�
 
 ## 利用状況の計測
 
-すべてのコマンドとゲートがイベントを JSONL に1行ずつ記録する。記録先は `DEV_TOOLS_LOG` → リポジトリの `.claude/dev-tools.log.jsonl`(あれば) → `~/.claude/dev-tools.log.jsonl`。
+すべてのコマンドとゲートがイベントを JSONL に1行ずつ記録する。記録先は次の順:
+
+1. 環境変数 `DEV_TOOLS_LOG`
+2. リポジトリの `.claude/dev-tools.log.jsonl` が **既に存在すれば** そこ(add-to-repo.sh を適用した Web/リポジトリモード)
+3. それ以外は `~/.claude/dev-tools.log.jsonl`(ローカルの全リポジトリ分がここに集まる)
+
+2 は既存ファイルがある場合だけ。計測を意図していないリポジトリに未追跡ファイルを増やさないため。
 
 | イベント | いつ | 主なフィールド |
 |---|---|---|
@@ -112,13 +120,13 @@ Claude 以外(例: Codex MCP)に任せたい観点は、その agent の本文�
 | `self_review.result` | /self-review | critical, warning, info, verdict |
 | `test_plan.created` | /test-plan | cases |
 | `test_check.result` | /test-check | planned, covered, unplanned, verdict |
-| `gate.pass` / `gate.block` | gh pr ready / create | action, reason(review / tests), has_test_plan |
+| `gate.pass` / `gate.block` | gh pr ready / create / create --draft | action(pr.ready / pr.create / pr.draft), reason(review / tests), reviewed, has_test_plan |
 
-集計:
+集計は Claude Code 内で `/dev-stats [日数]`(どのリポジトリからでも `~/.claude/` のログを読む)。シェルから直接:
 
 ```bash
-# 利用状況(ゲート通過率・レビュー収束・テスト計画カバー率)
-bash "$(find ~/.claude/plugins -path '*review-loop*' -name dev-tools-stats.sh | head -1)" [日数]
+# 利用状況(ゲート通過率・レビュー収束・テスト計画カバー率)。-f で他リポジトリのログを合算できる
+bash "$(find ~/.claude/plugins -path '*review-loop*' -name dev-tools-stats.sh | head -1)" [-f ログ ...] [日数]
 
 # 変更障害率(hotfix / revert ラベルの PR 比率)
 bash "$(find ~/.claude/plugins -path '*review-loop*' -name change-failure-rate.sh | head -1)" -d 30 owner/repo
@@ -144,7 +152,7 @@ bash "$(find ~/.claude/plugins -path '*review-loop*' -name change-failure-rate.s
 |---|---|
 | `.claude-plugin/marketplace.json` | プラグイン一覧(ここに追記していく) |
 | `add-to-repo.sh` | Web 用に対象リポジトリへポインタを書き込む |
-| `plugins/review-loop/commands/` | /review-loop(ティア判定つき自律ループ)、/self-review(単発・修正なし) |
+| `plugins/review-loop/commands/` | /review-loop(ティア判定つき自律ループ)、/self-review(単発・修正なし)、/dev-stats(利用状況) |
 | `plugins/review-loop/agents/` | security / performance / simplicity の3レビュアー |
 | `plugins/review-loop/hooks/hooks.json` | PreToolUse(Bash)フック: PR をレビュー可能にするコマンドをゲート |
 | `plugins/review-loop/scripts/` | 比較元判定・差分取得・ゲート・合格マーカー・イベントログ・集計・変更障害率 |

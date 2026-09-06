@@ -1,14 +1,15 @@
 #!/usr/bin/env bash
 # dev-tools-stats.sh — dev-tools(review-loop / test-plan)の利用状況を集計する
-# 使い方: dev-tools-stats.sh [-f ログファイル] [日数(省略時は全期間)]
+# 使い方: dev-tools-stats.sh [-f ログファイル ...] [日数(省略時は全期間)]
 # デフォルトでは ~/.claude/dev-tools.log.jsonl と、カレントのリポジトリ内
 # .claude/dev-tools.log.jsonl の両方をマージして集計する
 set -euo pipefail
 
 LOGS=()
-if [ "${1:-}" = "-f" ]; then
-  LOGS=("$2"); shift 2
-else
+while [ "${1:-}" = "-f" ]; do
+  LOGS+=("$2"); shift 2
+done
+if [ ${#LOGS[@]} -eq 0 ]; then
   [ -f "${HOME}/.claude/dev-tools.log.jsonl" ] && LOGS+=("${HOME}/.claude/dev-tools.log.jsonl")
   REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || echo "")
   [ -n "$REPO_ROOT" ] && [ -f "$REPO_ROOT/.claude/dev-tools.log.jsonl" ] && LOGS+=("$REPO_ROOT/.claude/dev-tools.log.jsonl")
@@ -33,15 +34,18 @@ echo "== 1. ゲート(PR をレビュー可能にする瞬間)=="
 echo "  ブロック率が下がる = 「レビューしてから PR」が習慣化している"
 echo "$DATA" | jq -s '
   [.[] | select(.event | startswith("gate."))] as $g |
-  ($g | length) as $n |
+  ([$g[] | select(.action!="pr.draft")] | length) as $n |
   {
     "試行回数": $n,
-    "通過": ([$g[] | select(.event=="gate.pass")] | length),
+    "通過": ([$g[] | select(.event=="gate.pass" and .action!="pr.draft")] | length),
     "ブロック(レビュー未合格)": ([$g[] | select(.event=="gate.block" and .reason=="review")] | length),
     "ブロック(テスト未確認)": ([$g[] | select(.event=="gate.block" and .reason=="tests")] | length),
     "ブロック率(%)": (if $n>0 then (([$g[] | select(.event=="gate.block")] | length) / $n * 100 | round) else null end),
-    "通過時にテスト計画があった割合(%)": (([$g[] | select(.event=="gate.pass")] | length) as $p |
-      if $p>0 then (([$g[] | select(.event=="gate.pass" and .has_test_plan==true)] | length) / $p * 100 | round) else null end)
+    "通過時にテスト計画があった割合(%)": (([$g[] | select(.event=="gate.pass" and .action!="pr.draft")] | length) as $p |
+      if $p>0 then (([$g[] | select(.event=="gate.pass" and .action!="pr.draft" and .has_test_plan==true)] | length) / $p * 100 | round) else null end),
+    "ドラフト作成数": ([$g[] | select(.action=="pr.draft")] | length),
+    "ドラフト作成時にレビュー済みだった割合(%)": (([$g[] | select(.event=="gate.pass" and .action=="pr.draft")] | length) as $d |
+      if $d>0 then (([$g[] | select(.event=="gate.pass" and .action=="pr.draft" and .reviewed==true)] | length) / $d * 100 | round) else null end)
   }'
 
 echo ""
@@ -101,7 +105,7 @@ echo "$DATA" | jq -s -r '
   "  \(.ts) [\(.repo)/\(.branch)] \(.event)" +
   (if .event=="review.round" then " round=\(.round) tier=\(.tier) c=\(.critical) w=\(.warning) i=\(.info) \(.verdict)"
    elif .event=="gate.block" then " action=\(.action) reason=\(.reason)"
-   elif .event=="gate.pass" then " action=\(.action) test_plan=\(.has_test_plan)"
+   elif .event=="gate.pass" then " action=\(.action) reviewed=\(.reviewed) test_plan=\(.has_test_plan)"
    elif .event=="test_check.result" then " covered=\(.covered)/\(.planned) unplanned=\(.unplanned // 0) \(.verdict)"
    elif .event=="test_plan.created" then " cases=\(.cases)"
    else "" end)'

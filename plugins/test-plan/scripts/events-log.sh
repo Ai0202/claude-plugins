@@ -8,8 +8,9 @@
 #
 # 記録先の優先順位:
 #   1. 環境変数 DEV_TOOLS_LOG
-#   2. リポジトリ内に .claude/ があれば <repo>/.claude/dev-tools.log.jsonl(Web/リポジトリモード)
+#   2. <repo>/.claude/dev-tools.log.jsonl が既に存在すればそこ(Web/リポジトリモード。add-to-repo.sh が作る)
 #   3. ~/.claude/dev-tools.log.jsonl(ローカルモード)
+# 2. は「既に存在する場合」に限る。勝手に作ると、計測を意図していないリポジトリに未追跡ファイルが増えるため
 set -euo pipefail
 
 [ $# -ge 1 ] || { echo "Usage: $0 <event> [key=value ...]" >&2; exit 1; }
@@ -18,7 +19,7 @@ EVENT="$1"; shift
 REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || echo "")
 if [ -n "${DEV_TOOLS_LOG:-}" ]; then
   LOG="$DEV_TOOLS_LOG"
-elif [ -n "$REPO_ROOT" ] && [ -d "$REPO_ROOT/.claude" ]; then
+elif [ -n "$REPO_ROOT" ] && [ -f "$REPO_ROOT/.claude/dev-tools.log.jsonl" ]; then
   LOG="$REPO_ROOT/.claude/dev-tools.log.jsonl"
 else
   LOG="${HOME}/.claude/dev-tools.log.jsonl"
