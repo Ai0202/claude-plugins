@@ -1,0 +1,13 @@
+{
+  "name": "dev-tools",
+  "owner": {
+    "name": "Ai0202"
+  },
+  "plugins": [
+    {
+      "name": "review-loop",
+      "source": "./plugins/review-loop",
+      "description": "リスクティア判定つき自律レビューループ(4観点並列レビュー + Stopフックゲート + 実行ログ計測)"
+    }
+  ]
+}
