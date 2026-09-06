@@ -3,7 +3,16 @@
 # リポジトリには何も足さず、サンドボックスの ~/.claude/ に個人設定だけを書いて dev-tools を有効にする。
 # dev-tools は公開リポジトリ(Ai0202/claude-plugins)だけを参照するのでトークン不要。
 # 個人スキル(private の Ai0202/dotfiles)も入れたい場合だけ、環境変数 DOTFILES_TOKEN を設定する。
+# (テスト用: DOTFILES_URL と DOTFILES_URL_SET=1 で clone 元を差し替えられる)
 set -euo pipefail
+
+# フックが使うコマンド(jq / gh)が無ければ入れる(入らなくても続行。無い場合はフックが一部素通りになる)
+if ! command -v jq >/dev/null 2>&1; then
+  (sudo -n apt-get install -y -qq jq >/dev/null 2>&1 || apt-get install -y -qq jq >/dev/null 2>&1 || brew install jq >/dev/null 2>&1) || echo "warn: jq を入れられませんでした" >&2
+fi
+if ! command -v gh >/dev/null 2>&1; then
+  (sudo -n apt-get install -y -qq gh >/dev/null 2>&1 || apt-get install -y -qq gh >/dev/null 2>&1 || brew install gh >/dev/null 2>&1) || echo "warn: gh を入れられませんでした(PR 作成・pr-docs は手動になります)" >&2
+fi
 
 mkdir -p "$HOME/.claude"
 S="$HOME/.claude/settings.json"
@@ -28,9 +37,10 @@ fi
 # --- 個人スキル・CLAUDE.md(private の dotfiles リポジトリから) ---
 # Web の環境設定で環境変数 DOTFILES_TOKEN に、Ai0202/dotfiles の Contents: Read だけを許可した
 # fine-grained PAT を入れておく。無ければこの部分は飛ばし、dev-tools だけ有効になる。
-if [ -n "${DOTFILES_TOKEN:-}" ]; then
+DOTFILES_URL="${DOTFILES_URL:-https://x-access-token:${DOTFILES_TOKEN:-}@github.com/Ai0202/dotfiles.git}"
+if [ -n "${DOTFILES_TOKEN:-}" ] || [ -n "${DOTFILES_URL_SET:-}" ]; then
   rm -rf /tmp/dotfiles
-  if git clone -q --depth 1 "https://x-access-token:${DOTFILES_TOKEN}@github.com/Ai0202/dotfiles.git" /tmp/dotfiles 2>/dev/null; then
+  if git clone -q --depth 1 "$DOTFILES_URL" /tmp/dotfiles 2>/dev/null; then
     for d in skills commands templates; do
       [ -d "/tmp/dotfiles/.claude/$d" ] && rm -rf "$HOME/.claude/$d" && cp -R "/tmp/dotfiles/.claude/$d" "$HOME/.claude/$d"
     done
