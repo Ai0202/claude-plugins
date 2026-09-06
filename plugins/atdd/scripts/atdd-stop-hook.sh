@@ -23,7 +23,7 @@ LOG="$DIR/events-log.sh"
 
 FM=$(sed -n '/^---$/,/^---$/{ /^---$/d; p; }' "$STATE")
 val() { echo "$FM" | grep "^$1:" | head -1 | sed "s/^$1:[[:space:]]*//"; }
-ITER=$(val iteration); MAX=$(val max_iterations); SBRANCH=$(val branch); SSESSION=$(val session_id); TASK_URL=$(val task_url)
+ITER=$(val iteration); MAX=$(val max_iterations); SBRANCH=$(val branch); SSESSION=$(val session_id); TASK_URL=$(val task_url); SIZE=$(val size)
 TASK=$(awk '/^---$/{i++; next} i>=2' "$STATE" | grep -m1 '^# 作業リスト:' | sed 's/^# 作業リスト:[[:space:]]*//')
 DONE_N=$(grep -c "^- \[x\]" "$STATE" 2>/dev/null || true)
 TODO_N=$(grep -c "^- \[ \]" "$STATE" 2>/dev/null || true)
@@ -117,6 +117,6 @@ fi
 REASON="$REASON 進めたら .claude/atdd.local.md の作業リストを更新すること(チェック・TC 状況・決めたこと)。フェーズの区切り(PLAN 承認 / RED / GREEN / REVIEW 合格 / PR)では Notion タスク${TASK_URL:+($TASK_URL)}のチェックリスト・進捗ログも書き戻すこと。"
 "$LOG" atdd.iteration iteration="$NEXT" phase="$PHASE" tests_green="$TESTS_GREEN" reviewed="$REVIEWED" pr_ok="$PR_OK" >/dev/null 2>&1 || true
 
-jq -n --arg reason "$REASON" --arg msg "🔄 atdd $NEXT/$MAX [$PHASE] tests=$TESTS_GREEN review=$REVIEWED pr=$PR_OK | 作業リスト ${DONE_N}/$((DONE_N+TODO_N)) 完了 | ${TASK:0:60}${TASK_URL:+ | 📎 $TASK_URL}" \
+jq -n --arg reason "$REASON" --arg msg "🔄 atdd $NEXT/$MAX [$PHASE${SIZE:+/$SIZE}] tests=$TESTS_GREEN review=$REVIEWED pr=$PR_OK | 作業リスト ${DONE_N}/$((DONE_N+TODO_N)) 完了 | ${TASK:0:60}${TASK_URL:+ | 📎 $TASK_URL}" \
   '{decision:"block", reason:$reason, systemMessage:$msg}'
 exit 0

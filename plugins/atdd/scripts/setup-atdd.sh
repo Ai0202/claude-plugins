@@ -1,16 +1,18 @@
 #!/usr/bin/env bash
 # setup-atdd.sh — /atdd の状態ファイルを作る(このファイルがある間だけ Stop フックがループを回す)
-# 使い方: setup-atdd.sh [--max-iterations N] [--task-url <NotionタスクURL>] [タスクの説明...]
+# 使い方: setup-atdd.sh [--max-iterations N] [--task-url <NotionタスクURL>] [--size S|M|L] [タスクの説明...]
 # 再開時に --task-url を渡すと frontmatter の task_url を更新する
 set -euo pipefail
 
 MAX=10
 TASK_URL=""
+SIZE="M"
 TASK_PARTS=()
 while [ $# -gt 0 ]; do
   case "$1" in
     --max-iterations) MAX="$2"; shift 2 ;;
     --task-url) TASK_URL="$2"; shift 2 ;;
+    --size) SIZE="$2"; shift 2 ;;
     *) TASK_PARTS+=("$1"); shift ;;
   esac
 done
@@ -37,6 +39,9 @@ if [ -f "$STATE" ]; then
   if [ -n "$SESSION" ]; then
     sed "s/^session_id: .*/session_id: $SESSION/" "$STATE" > "$STATE.tmp.$$" && mv "$STATE.tmp.$$" "$STATE"
   fi
+  if [ -n "$SIZE" ] && grep -q '^size:' "$STATE" && [ "$SIZE" != "M" ]; then
+    sed "s/^size: .*/size: $SIZE/" "$STATE" > "$STATE.tmp.$$" && mv "$STATE.tmp.$$" "$STATE"
+  fi
   if [ -n "$TASK_URL" ]; then
     if grep -q '^task_url:' "$STATE"; then
       sed "s#^task_url: .*#task_url: $TASK_URL#" "$STATE" > "$STATE.tmp.$$" && mv "$STATE.tmp.$$" "$STATE"
@@ -58,6 +63,7 @@ cat > "$STATE" <<EOF
 ---
 branch: $BRANCH
 task_url: $TASK_URL
+size: $SIZE
 session_id: $SESSION
 iteration: 0
 max_iterations: $MAX

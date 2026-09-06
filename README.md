@@ -15,6 +15,8 @@ review-loop / test-plan / pr-docs は独立していて、どれか1つだけ入
 
 ### まとめて任せる: `/atdd <チケットURL | PR | タスクの説明>`
 
+開発作業の入口はこれ 1 つ。test-plan / review-loop / pr-docs / register-task は中から呼ばれるので、どのスキルを使うか意識しなくてよい。
+
 ```
 /atdd 注文一覧に CSV エクスポートを追加する    # 説明から(Notion タスクを register-task で作る)
 /atdd https://www.notion.so/...            # Notion タスクから(別リポジトリでも同じタスクを共有)
@@ -22,7 +24,8 @@ review-loop / test-plan / pr-docs は独立していて、どれか1つだけ入
 /atdd                                      # 途中の作業リストから再開
 ```
 
-0. **Notion タスクを確保** 無ければ register-task スキルで作る(重複チェック込み)。以後このページが司令塔: 概要 / 設計 / ADR / テスト計画 / チェックリスト(リポジトリごと) / 関連 PR / 進捗ログ
+0. **サイズ判定** S(バグ修正・文言など 50 行未満) / M(通常) / L(複数リポジトリ・スキーマや API 変更・認証決済)。S は grill-me・設計・ADR を飛ばし、再現テスト 1〜3 本だけで RED → GREEN → REVIEW → PR を回す。`--size` で指定もできる
+0. **Notion タスクを確保** 無ければ register-task スキルで作る(重複チェック込み。task-hub は使わない)。以後このページが司令塔: 概要 / 設計 / ADR / テスト計画 / チェックリスト(リポジトリごと) / 関連 PR / 進捗ログ
 1. **PLAN** grill-me 系スキルがあれば仕様を問い詰めて固め、設計と ADR を Notion に書き、/test-plan でテスト計画(トロフィー型: 結合が主力、E2E は happy path 1〜2 本)を作って承認を待つ(質問があれば `<atdd>PAUSE</atdd>` で止まる)
 2. **RED** 各 TC に対応する失敗するテストを先に書き、run-tests.sh で失敗を確認
 3. **GREEN** 最小の実装でテストを通す(run-tests.sh で exit 0)
