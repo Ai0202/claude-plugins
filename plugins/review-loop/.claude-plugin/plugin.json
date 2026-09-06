@@ -1,5 +1,5 @@
 {
   "name": "review-loop",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "リスクティア判定つき自律レビューループ。/plan(実装前の受け入れ基準作成)、/review-loop、/self-review、4観点レビューエージェント、タスク完了をレビュー合格にゲートするStopフック、実行ログ計測を含む"
 }

@@ -21,24 +21,15 @@ fi
 git rev-parse --is-inside-work-tree >/dev/null 2>&1 || exit 0
 
 # --- 差分ハッシュの計算(mark-review-passed.sh と同一ロジック) ---
-BASE=""
-for b in main master; do
-  git show-ref --verify --quiet "refs/heads/$b" && BASE="$b" && break
-done
-
-{
-  [ -n "$BASE" ] && git diff "${BASE}...HEAD" 2>/dev/null
-  git diff HEAD 2>/dev/null
-} > /tmp/claude-review-diff.$$ 2>/dev/null
+DIR="$(cd "$(dirname "$0")" && pwd)"
+DIFF=$("$DIR/review-diff.sh" 2>/dev/null) || exit 0
+BASE_LINE=$(printf '%s\n' "$DIFF" | head -1)
+BODY=$(printf '%s\n' "$DIFF" | tail -n +2)
 
 # --- ガード3: 差分がなければ止めない ---
-if [ ! -s /tmp/claude-review-diff.$$ ]; then
-  rm -f /tmp/claude-review-diff.$$
-  exit 0
-fi
+[ -z "$BODY" ] && exit 0
 
-HASH=$(sha256sum /tmp/claude-review-diff.$$ | cut -d' ' -f1)
-rm -f /tmp/claude-review-diff.$$
+HASH=$(printf '%s\n' "$BODY" | sha256sum | cut -d' ' -f1)
 
 MARKER="$(git rev-parse --git-dir)/claude-review-passed"
 
@@ -48,5 +39,5 @@ if [ -f "$MARKER" ] && [ "$(cat "$MARKER")" = "$HASH" ]; then
 fi
 
 # --- ブロック: レビューループを指示 ---
-echo "コード変更に対してレビューループが未合格です。タスクを完了する前に /review-loop を実行し、Critical と Warning をすべて解消して合格させてください。合格できない指摘が残る場合は、その内容をユーザーに報告してください。" >&2
+echo "コード変更(${BASE_LINE#\# })に対してレビューループが未合格です。タスクを完了する前に /review-loop を実行し、Critical と Warning をすべて解消して合格させてください。合格できない指摘が残る場合は、その内容をユーザーに報告してください。" >&2
 exit 2

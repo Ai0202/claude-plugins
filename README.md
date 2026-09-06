@@ -69,6 +69,24 @@ git add .claude && git commit -m "chore: enable review-loop plugin"
 
 クラウドセッションはセッション開始時にマーケットプレイスを取得します。パブリックリポジトリなので認証まわりの詰まりはありません。
 
+## レビュー差分の比較元(ベースブランチ)
+
+レビュー対象は「比較元ブランチとの分岐点以降のコミット + 未コミット変更」です。比較元は次の順で自動判定します:
+
+1. コマンド引数(`/self-review develop` など)
+2. `git config review-loop.base <branch>`(リポジトリごとに固定したいとき)
+3. 現在ブランチに開いている PR のベースブランチ(`gh` が使える場合)
+4. `develop` / `main` / `master` のうち HEAD に最も近いもの
+
+develop 運用のリポジトリでも、PR を切っていれば自動で develop 比較になります。各コマンドは最初に `# base: ...` と変更ファイル一覧を表示するので、比較元の取り違えはそこで分かります。
+
+手元で差分だけ確認したいとき:
+
+```bash
+bash "$(find ~/.claude/plugins -name review-diff.sh 2>/dev/null | head -1)" --stat   # 比較元 + ファイル一覧
+bash "$(find ~/.claude/plugins -name review-diff.sh 2>/dev/null | head -1)"          # 全文差分
+```
+
 ## ルールの更新方法
 
 1. このリポジトリの `plugins/review-loop/` 配下を編集(観点の追加、ティア基準の変更など)
@@ -84,7 +102,7 @@ git add .claude && git commit -m "chore: enable review-loop plugin"
 | `plugins/review-loop/commands/` | /plan(受け入れ基準作成)、/review-loop(ティア判定つき自律ループ)、/self-review(単発) |
 | `plugins/review-loop/agents/` | security / performance / simplicity / spec-compliance の4レビュアー |
 | `plugins/review-loop/hooks/hooks.json` | Stopフック: レビュー未合格ならタスク完了をブロック |
-| `plugins/review-loop/scripts/` | ログ記録・統計・合格マーカー・Stopゲート・変更障害率(CFR)計測 |
+| `plugins/review-loop/scripts/` | 比較元判定・差分取得・ログ記録・統計・合格マーカー・Stopゲート・変更障害率(CFR)計測 |
 
 ティア基準・ループ回数・ログの仕組みは `plugins/review-loop/commands/review-loop.md` を参照。
 

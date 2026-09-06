@@ -1,15 +1,16 @@
 ---
 description: 変更差分を4観点(セキュリティ/パフォーマンス/シンプルさ/仕様・ルール準拠)で並列セルフレビューする
-allowed-tools: Bash(git diff:*), Bash(git log:*), Bash(git status:*), Read, Grep, Glob, Task
+allowed-tools: Bash, Read, Grep, Glob, Task
 ---
 
-現在の変更差分に対してセルフレビューを実施してください。引数: $ARGUMENTS(比較対象ブランチ。省略時は main または master)
+現在の変更差分に対してセルフレビューを実施してください。引数: $ARGUMENTS(比較元ブランチ。省略時は自動判定)
 
 ## 手順
 
-1. まずレビュー対象の差分を特定する:
-   - `git status` と `git diff <base>...HEAD` で変更内容を取得する(base は $ARGUMENTS、なければ main / master を自動判定)
-   - コミット前の変更しかない場合は `git diff HEAD` を対象とする
+1. まずレビュー対象の差分を特定する(スクリプトの探索順: `${CLAUDE_PLUGIN_ROOT}/scripts/` → `find ~/.claude/plugins -name review-diff.sh 2>/dev/null | head -1`):
+   - `<scripts-dir>/review-diff.sh --stat $ARGUMENTS` で比較元(先頭行 `# base: ...`)と変更ファイル一覧を取得し、**そのまま最初にユーザーへ提示する**(比較元の取り違えに気づけるように)
+   - 比較元は 引数 → `git config review-loop.base` → 現在ブランチの PR のベース → develop / main / master のうち HEAD に最も近いもの の順で決まる
+   - `<scripts-dir>/review-diff.sh $ARGUMENTS` で全文差分(分岐点以降のコミット + 未コミット変更)を取得する
    - 差分がゼロならその旨を伝えて終了する
 
 2. 以下の4つのサブエージェントを **並列で** 起動し、それぞれに差分と関連ファイルパスを渡す:
@@ -21,7 +22,7 @@ allowed-tools: Bash(git diff:*), Bash(git log:*), Bash(git status:*), Read, Grep
 3. 各エージェントの結果を統合し、以下のフォーマットで最終レポートを出力する:
 
 ```
-# セルフレビュー結果
+# セルフレビュー結果(比較元: <base> / 変更ファイル N 件)
 
 ## 🔴 Critical(リリースブロッカー)
 - [観点] ファイル:行 — 指摘内容と修正案

@@ -9,7 +9,10 @@ allowed-tools: Bash, Read, Grep, Glob, Edit, Write, Task
 ## セットアップ
 
 1. `RUN_ID=$(date +%Y%m%d%H%M%S)` を生成する
-2. レビュー対象の差分を特定する: `git diff <base>...HEAD` + 未コミット変更(base は main / master を自動判定)。差分ゼロなら終了
+2. レビュー対象の差分を特定する(スクリプトの探索順: `${CLAUDE_PLUGIN_ROOT}/scripts/` → `find ~/.claude/plugins -name review-diff.sh 2>/dev/null | head -1`):
+   - `<scripts-dir>/review-diff.sh --stat` で比較元(先頭行 `# base: ...`)と変更ファイル一覧を取得し、**ティア判定の前にユーザーへ提示する**
+   - 比較元は `git config review-loop.base` → 現在ブランチの PR のベース → develop / main / master のうち HEAD に最も近いもの の順で自動判定される。違うブランチと比べたい場合は `git config review-loop.base <branch>` で固定できる
+   - `<scripts-dir>/review-diff.sh` で全文差分(分岐点以降のコミット + 未コミット変更)を取得する。差分ゼロなら終了
 3. `.claude/specs/<ブランチ名>.md`(/plan の受け入れ基準)の有無を確認し、あればその存在を宣言する(spec-compliance-reviewer が仕様ソースとして使う)
 
 ## ステップ0: リスクティア判定
@@ -54,7 +57,7 @@ verdict は: `pass` / `continue` / `max-rounds-reached`
 ## 最終レポート
 
 ```
-# レビューループ結果 (RUN_ID: xxx / ティア: N — 判定根拠)
+# レビューループ結果 (RUN_ID: xxx / 比較元: <base> / ティア: N — 判定根拠)
 
 ## 収束状況
 | Round | Critical | Warning | Info |
