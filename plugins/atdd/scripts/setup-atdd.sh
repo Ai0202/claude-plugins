@@ -26,7 +26,7 @@ SESSION="${CLAUDE_CODE_SESSION_ID:-${CLAUDE_SESSION_ID:-}}"
 
 # 再開: 状態ファイルがあれば、このセッションに引き継いで作業リストを表示する
 if [ -f "$STATE" ]; then
-  SBRANCH=$(sed -n '/^---$/,/^---$/{ /^branch:/{ s/^branch:[[:space:]]*//; p; } }' "$STATE" | head -1)
+  SBRANCH=$(sed -n '/^---$/,/^---$/{ /^---$/d; p; }' "$STATE" | grep '^branch:' | head -1 | sed 's/^branch:[[:space:]]*//')
   if [ -n "$SBRANCH" ] && [ "$SBRANCH" != "$BRANCH" ]; then
     echo "進行中の /atdd はブランチ $SBRANCH のものです(現在: $BRANCH)。git checkout $SBRANCH してから再実行するか、/cancel-atdd で破棄してください" >&2
     exit 1
