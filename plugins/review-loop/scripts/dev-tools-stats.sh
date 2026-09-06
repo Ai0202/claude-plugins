@@ -92,12 +92,12 @@ echo "$DATA" | jq -s '
   }'
 
 echo ""
-echo "== 4. /build(ATDD ループ)=="
+echo "== 4. /atdd(ATDD ループ)=="
 echo "  完走率が高く、平均周回が少ない = 計画とテストが最初から噛み合っている"
 echo "$DATA" | jq -s '
-  ([.[] | select(.event=="build.start")]) as $s |
-  ([.[] | select(.event=="build.done")]) as $d |
-  ([.[] | select(.event=="build.abort")]) as $a |
+  ([.[] | select(.event=="atdd.start")]) as $s |
+  ([.[] | select(.event=="atdd.done")]) as $d |
+  ([.[] | select(.event=="atdd.abort")]) as $a |
   ([.[] | select(.event=="tests.run")]) as $t |
   {
     "開始回数": ($s | length),
@@ -128,8 +128,8 @@ echo "$DATA" | jq -s -r '
    elif .event=="test_plan.created" then " cases=\(.cases)"
    elif .event=="pr_docs.done" then " pr=#\(.pr) comments=\(.comments)"
    elif .event=="pr_docs.prompt" then " pr=#\(.pr)"
-   elif .event=="build.iteration" then " \(.iteration) [\(.phase)] tests=\(.tests_green) review=\(.reviewed) pr=\(.pr_ok)"
-   elif .event=="build.done" then " iterations=\(.iterations)"
-   elif .event=="build.abort" then " iterations=\(.iterations) tests=\(.tests_green) review=\(.reviewed) pr=\(.pr_ok)"
+   elif .event=="atdd.iteration" then " \(.iteration) [\(.phase)] tests=\(.tests_green) review=\(.reviewed) pr=\(.pr_ok)"
+   elif .event=="atdd.done" then " iterations=\(.iterations)"
+   elif .event=="atdd.abort" then " iterations=\(.iterations) tests=\(.tests_green) review=\(.reviewed) pr=\(.pr_ok)"
    elif .event=="tests.run" then " exit=\(.exit)"
    else "" end)'

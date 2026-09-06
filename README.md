@@ -6,26 +6,33 @@
 |---|---|---|
 | **review-loop** | `/review-loop` `/self-review` `/dev-stats` | コード品質。security / performance / simplicity の3観点で並列レビューし、修正まで自動で回す。PR をレビュー可能にする瞬間をゲートする |
 | **test-plan** | `/test-plan` `/test-check` | 仕様担保。実装前にテスト計画を作り、実装後に「計画どおりのテストが存在・実行・合格しているか」を突合する |
-| **build** | `/build` `/cancel-build` | ATDD のオーケストレータ。テスト計画 → 失敗するテスト(RED) → 実装(GREEN) → 品質レビュー → PR 更新 を 1 本に繋ぎ、Stop フックが「テスト緑・レビュー合格・PR 追随」を機械判定して完了まで回す。上の 3 つが必要 |
+| **atdd** | `/atdd` `/cancel-atdd` | ATDD のオーケストレータ。チケット / PR / 説明を入力に、仕様の詰め(grill-me) → テスト計画 → 失敗するテスト(RED) → 実装(GREEN) → 品質レビュー → PR 更新 を 1 本に繋ぎ、Stop フックが「テスト緑・レビュー合格・PR 追随」を機械判定して完了まで回す。作業リストを `.claude/atdd.local.md` に持ち、セッションをまたいで再開できる。上の 3 つが必要 |
 | **pr-docs** | `/pr-docs` | PR の仕上げ。実装内容からタイトル・本文をテンプレートに沿って書き直し、Before/After の図(Mermaid: ERD・シーケンス・クラス・フロー、必要な種類だけ)つきの新卒向け解説を PR コメントで 1 つ付ける(2回目以降は同じコメントを更新)。push 済み・PR ありで作業が止まったとき Stop フックが追随を促す |
 
-review-loop / test-plan / pr-docs は独立していて、どれか1つだけ入れても動く。build はその 3 つを順に呼ぶオーケストレータ。接点は `.claude/specs/<branch>.md`(テスト計画)と `.git/` 内のマーカーだけ。
+review-loop / test-plan / pr-docs は独立していて、どれか1つだけ入れても動く。atdd はその 3 つを順に呼ぶオーケストレータ。接点は `.claude/specs/<branch>.md`(テスト計画)と `.git/` 内のマーカーだけ。
 
 ## 推奨ワークフロー
 
-### まとめて任せる: `/build <タスク>`
+### まとめて任せる: `/atdd <チケットURL | PR | タスクの説明>`
 
 ```
-/build 注文一覧に CSV エクスポートを追加する
+/atdd 注文一覧に CSV エクスポートを追加する
+/atdd https://www.notion.so/...            # チケットから
+/atdd 4517                                 # 既存 PR の続きから
+/atdd                                      # 途中の作業リストから再開
 ```
 
-1. **PLAN** テスト計画が無ければ /test-plan で作り、承認を待つ(質問があれば `<build>PAUSE</build>` で止まる)
+1. **PLAN** grill-me 系スキルがあれば仕様を問い詰めて固め、/test-plan でテスト計画(トロフィー型: 結合が主力、E2E は happy path 1〜2 本)を作って承認を待つ(質問があれば `<atdd>PAUSE</atdd>` で止まる)
 2. **RED** 各 TC に対応する失敗するテストを先に書き、run-tests.sh で失敗を確認
 3. **GREEN** 最小の実装でテストを通す(run-tests.sh で exit 0)
 4. **REVIEW** /review-loop で品質レビュー → 合格
 5. **PR** commit → push → ドラフト PR → /pr-docs で本文と解説を更新
 
-Stop フックが毎回、**マーカーだけで**完了を判定する(Claude の「終わりました」は使わない): run-tests.sh の最終結果が exit 0 でその後コードが変わっていない / レビュー合格マーカーが現在の差分と一致 / PR があれば push 済みで pr-docs が HEAD に追随。未達なら次のフェーズを指示して続行、既定 10 周で打ち切り(`--max-iterations N`)。止めるときは `/cancel-build`。状態は `.claude/build.local.md`(自動で `.git/info/exclude` に追加)。
+作業リスト(進行チェック・TC 状況・決めたこと)を `.claude/atdd.local.md` に持ち、ステップごとに更新する。セッションが切れても次のセッションで `/atdd` と打てばそこから再開する。
+
+Stop フックが毎回、**マーカーだけで**完了を判定する(Claude の「終わりました」は使わない): run-tests.sh の最終結果が exit 0 でその後コードが変わっていない / レビュー合格マーカーが現在の差分と一致 / PR があれば push 済みで pr-docs が HEAD に追随。未達なら次のフェーズを指示して続行、既定 10 周で打ち切り(`--max-iterations N`)。止めるときは `/cancel-atdd`。状態ファイルは自動で `.git/info/exclude` に追加される。
+
+仕様の詰めに使う grill-me は Matt Pocock のスキル集に入っている: `/plugin install mattpocock-skills@claude-plugins-official`。無くても test-plan の質問ルールで動く。
 
 ### 手動で 1 つずつ
 
@@ -67,7 +74,7 @@ Claude Code内で:
 /plugin install review-loop@dev-tools
 /plugin install test-plan@dev-tools
 /plugin install pr-docs@dev-tools
-/plugin install build@dev-tools
+/plugin install atdd@dev-tools
 ```
 
 インストール時に **User scope(全プロジェクト)** を選択。
@@ -81,7 +88,7 @@ Claude Code内で:
       "source": { "source": "github", "repo": "Ai0202/claude-plugins" }
     }
   },
-  "enabledPlugins": { "review-loop@dev-tools": true, "test-plan@dev-tools": true, "pr-docs@dev-tools": true, "build@dev-tools": true }
+  "enabledPlugins": { "review-loop@dev-tools": true, "test-plan@dev-tools": true, "pr-docs@dev-tools": true, "atdd@dev-tools": true }
 }
 ```
 
@@ -157,7 +164,7 @@ Claude 以外(例: Codex MCP)に任せたい観点は、その agent の本文�
 | `gate.pass` / `gate.block` | gh pr ready / create / create --draft | action(pr.ready / pr.create / pr.draft), reason(review / tests), reviewed, has_test_plan |
 | `pr_docs.prompt` / `pr_docs.done` | Stop フックが促した / /pr-docs 完了 | pr, comments |
 | `tests.run` | run-tests.sh | exit |
-| `build.start` / `build.iteration` / `build.pause` / `build.done` / `build.abort` | /build の各周回 | iteration, phase, tests_green, reviewed, pr_ok |
+| `atdd.start` / `atdd.iteration` / `atdd.pause` / `atdd.done` / `atdd.abort` | /atdd の各周回 | iteration, phase, tests_green, reviewed, pr_ok |
 
 集計は Claude Code 内で `/dev-stats [日数]`(どのリポジトリからでも `~/.claude/` のログを読む)。シェルから直接:
 
@@ -174,7 +181,7 @@ bash "$(find ~/.claude/plugins -path '*review-loop*' -name change-failure-rate.s
 - **ゲートのブロック率が下がる** → レビューしてから PR に出す習慣がついている
 - **1周目の平均指摘数が下がる** → 最初から品質の高いコードを書けている
 - **テスト計画のカバー率が高く、計画外の変更が少ない** → 仕様どおりに作れている
-- **/build の完走率が高く、平均周回が少ない** → 計画とテストが最初から噛み合っている
+- **/atdd の完走率が高く、平均周回が少ない** → 計画とテストが最初から噛み合っている
 - **変更障害率が下がる** → 上の指標が実際の障害減少につながっている(最終的な成果指標)
 
 ## ルールの更新方法
@@ -196,9 +203,9 @@ bash "$(find ~/.claude/plugins -path '*review-loop*' -name change-failure-rate.s
 | `plugins/review-loop/scripts/` | 比較元判定・差分取得・ゲート・合格マーカー・イベントログ・集計・変更障害率 |
 | `plugins/test-plan/commands/` | /test-plan(計画作成)、/test-check(突合・実行確認) |
 | `plugins/test-plan/scripts/` | 比較元判定・差分取得・テスト実行と結果記録(run-tests.sh)・テスト合格マーカー・イベントログ |
-| `plugins/build/commands/` | /build(ATDD オーケストレータ)、/cancel-build |
-| `plugins/build/hooks/hooks.json` | Stop フック: 完了条件を機械判定し、未達なら次フェーズを指示して続行 |
-| `plugins/build/scripts/` | 状態ファイル作成・Stop フック本体・差分取得・イベントログ |
+| `plugins/atdd/commands/` | /atdd(ATDD オーケストレータ)、/cancel-atdd |
+| `plugins/atdd/hooks/hooks.json` | Stop フック: 完了条件を機械判定し、未達なら次フェーズを指示して続行 |
+| `plugins/atdd/scripts/` | 状態ファイル作成・Stop フック本体・差分取得・イベントログ |
 | `plugins/pr-docs/commands/` | /pr-docs(PR 本文の書き直し + 図つき新卒向け解説コメント) |
 | `plugins/pr-docs/hooks/hooks.json` | Stop フック: push 済み・PR ありで説明が古ければ /pr-docs を促す |
 | `plugins/pr-docs/scripts/` | Stop フック本体・追随マーカー・イベントログ |

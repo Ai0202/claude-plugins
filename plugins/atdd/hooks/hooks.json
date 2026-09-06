@@ -5,7 +5,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/scripts/build-stop-hook.sh\""
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/scripts/atdd-stop-hook.sh\""
           }
         ]
       }

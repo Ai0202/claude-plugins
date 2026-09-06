@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# build-stop-hook.sh — /build 用 Stop フック
-# .claude/build.local.md がある間、Claude が止まろうとするたびに完了条件を「客観的に」確認し、
+# atdd-stop-hook.sh — /atdd 用 Stop フック
+# .claude/atdd.local.md がある間、Claude が止まろうとするたびに完了条件を「客観的に」確認し、
 # 未達なら次にやるべきフェーズを指示して止めない(ralph-loop と同じ decision:block 方式)。
 #
 # 完了条件(すべて .git/ 内のマーカーで判定。Claude の自己申告は使わない):
@@ -9,13 +9,13 @@
 #   3. PR が最新: 追跡ファイルに未コミット変更が無く、push 済みで、claude-pr-docs が HEAD と一致
 #      (PR が無い・gh が使えない場合は 3 を免除)
 # 打ち切り: iteration >= max_iterations
-# 一時停止: 直前の Claude の発言に <build>PAUSE</build> が含まれる(ユーザーへの質問待ち)。状態は残す
+# 一時停止: 直前の Claude の発言に <atdd>PAUSE</atdd> が含まれる(ユーザーへの質問待ち)。状態は残す
 set -uo pipefail
 
 INPUT=$(cat)
 git rev-parse --is-inside-work-tree >/dev/null 2>&1 || exit 0
 ROOT=$(git rev-parse --show-toplevel)
-STATE="$ROOT/.claude/build.local.md"
+STATE="$ROOT/.claude/atdd.local.md"
 [ -f "$STATE" ] || exit 0
 
 DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -24,7 +24,9 @@ LOG="$DIR/events-log.sh"
 FM=$(sed -n '/^---$/,/^---$/{ /^---$/d; p; }' "$STATE")
 val() { echo "$FM" | grep "^$1:" | head -1 | sed "s/^$1:[[:space:]]*//"; }
 ITER=$(val iteration); MAX=$(val max_iterations); SBRANCH=$(val branch); SSESSION=$(val session_id)
-TASK=$(awk '/^---$/{i++; next} i>=2' "$STATE")
+TASK=$(awk '/^---$/{i++; next} i>=2' "$STATE" | grep -m1 '^# 作業リスト:' | sed 's/^# 作業リスト:[[:space:]]*//')
+DONE_N=$(grep -c "^- \[x\]" "$STATE" 2>/dev/null || true)
+TODO_N=$(grep -c "^- \[ \]" "$STATE" 2>/dev/null || true)
 
 # 別セッション・別ブランチのループには干渉しない
 HSESSION=$(echo "$INPUT" | jq -r '.session_id // ""' 2>/dev/null || echo "")
@@ -32,14 +34,14 @@ if [ -n "$SSESSION" ] && [ -n "$HSESSION" ] && [ "$SSESSION" != "$HSESSION" ]; t
 BRANCH=$(git rev-parse --abbrev-ref HEAD)
 [ "$BRANCH" = "$SBRANCH" ] || exit 0
 
-[[ "$ITER" =~ ^[0-9]+$ && "$MAX" =~ ^[0-9]+$ ]] || { echo "build: 状態ファイルが壊れています。/cancel-build で消してください" >&2; exit 0; }
+[[ "$ITER" =~ ^[0-9]+$ && "$MAX" =~ ^[0-9]+$ ]] || { echo "atdd: 状態ファイルが壊れています。/cancel-atdd で消してください" >&2; exit 0; }
 
 # 一時停止(ユーザーへの質問待ち)
 TRANSCRIPT=$(echo "$INPUT" | jq -r '.transcript_path // ""' 2>/dev/null || echo "")
 if [ -n "$TRANSCRIPT" ] && [ -f "$TRANSCRIPT" ]; then
   LAST=$(grep '"role":"assistant"' "$TRANSCRIPT" | tail -n 100 | jq -rs 'map(.message.content[]? | select(.type=="text") | .text) | last // ""' 2>/dev/null || echo "")
-  if echo "$LAST" | grep -q '<build>PAUSE</build>'; then
-    "$LOG" build.pause iteration="$ITER" >/dev/null 2>&1 || true
+  if echo "$LAST" | grep -q '<atdd>PAUSE</atdd>'; then
+    "$LOG" atdd.pause iteration="$ITER" >/dev/null 2>&1 || true
     exit 0
   fi
 fi
@@ -78,16 +80,16 @@ fi
 
 if [ -n "$BODY" ] && $TESTS_GREEN && $REVIEWED && $PR_OK; then
   rm -f "$STATE"
-  "$LOG" build.done iterations="$ITER" >/dev/null 2>&1 || true
-  echo "✅ build: 完了条件をすべて満たしました(テスト緑・レビュー合格・PR 最新)。ループを終了します。"
+  "$LOG" atdd.done iterations="$ITER" >/dev/null 2>&1 || true
+  echo "✅ atdd: 完了条件をすべて満たしました(テスト緑・レビュー合格・PR 最新)。ループを終了します。"
   exit 0
 fi
 
 # --- 打ち切り ---
 if [ "$MAX" -gt 0 ] && [ "$ITER" -ge "$MAX" ]; then
   rm -f "$STATE"
-  "$LOG" build.abort iterations="$ITER" tests_green="$TESTS_GREEN" reviewed="$REVIEWED" pr_ok="$PR_OK" >/dev/null 2>&1 || true
-  echo "🛑 build: 最大 ${MAX} 周に達しました。未達: tests_green=${TESTS_GREEN} reviewed=${REVIEWED} pr_ok=${PR_OK} 。残件をユーザーに報告して止まります。" >&2
+  "$LOG" atdd.abort iterations="$ITER" tests_green="$TESTS_GREEN" reviewed="$REVIEWED" pr_ok="$PR_OK" >/dev/null 2>&1 || true
+  echo "🛑 atdd: 最大 ${MAX} 周に達しました。未達: tests_green=${TESTS_GREEN} reviewed=${REVIEWED} pr_ok=${PR_OK} 。残件をユーザーに報告して止まります。" >&2
   exit 0
 fi
 
@@ -97,10 +99,10 @@ sed "s/^iteration: .*/iteration: $NEXT/" "$STATE" > "$STATE.tmp.$$" && mv "$STAT
 
 if [ -z "$BODY" ]; then
   PHASE="plan"
-  REASON="まだ差分がありません。/build の手順に従い、テスト計画(.claude/specs/${BRANCH//\//-}.md)が無ければ test-plan:test-plan スキルで作って承認を得(承認待ちなら <build>PAUSE</build> と書いて止まる)、承認済みなら RED: 各 TC に対応する失敗するテストを書いて run-tests.sh で失敗を確認してください。"
+  REASON="まだ差分がありません。/atdd の手順に従い、テスト計画(.claude/specs/${BRANCH//\//-}.md)が無ければ test-plan:test-plan スキルで作って承認を得(承認待ちなら <atdd>PAUSE</atdd> と書いて止まる)、承認済みなら RED: 各 TC に対応する失敗するテストを書いて run-tests.sh で失敗を確認してください。"
 elif ! $HAS_SPEC; then
   PHASE="plan"
-  REASON="テスト計画がありません。test-plan:test-plan スキルで .claude/specs/${BRANCH//\//-}.md を作り、ユーザーの承認を得てください(承認待ちなら <build>PAUSE</build> と書いて止まる)。"
+  REASON="テスト計画がありません。test-plan:test-plan スキルで .claude/specs/${BRANCH//\//-}.md を作り、ユーザーの承認を得てください(承認待ちなら <atdd>PAUSE</atdd> と書いて止まる)。"
 elif ! $TESTS_GREEN; then
   PHASE="green"
   REASON="テストがまだ緑ではありません(最後の run-tests の結果が失敗、または実行後にコードが変わっています)。テスト計画の各 TC にテストがあることを確認し、無ければ先に失敗するテストを書き(RED)、実装してから test-plan の run-tests.sh を実行して exit 0 を確認してください(GREEN)。テストを弱めたり skip にして通さないこと。"
@@ -112,8 +114,9 @@ else
   REASON="テスト緑・レビュー合格です。変更をコミットして push し、PR が無ければ c-create-pr でドラフト PR を作り、pr-docs:pr-docs スキルで PR 本文と解説コメントを更新してください。"
 fi
 
-"$LOG" build.iteration iteration="$NEXT" phase="$PHASE" tests_green="$TESTS_GREEN" reviewed="$REVIEWED" pr_ok="$PR_OK" >/dev/null 2>&1 || true
+REASON="$REASON 進めたら .claude/atdd.local.md の作業リストを更新すること(チェック・TC 状況・決めたこと)。"
+"$LOG" atdd.iteration iteration="$NEXT" phase="$PHASE" tests_green="$TESTS_GREEN" reviewed="$REVIEWED" pr_ok="$PR_OK" >/dev/null 2>&1 || true
 
-jq -n --arg reason "$REASON" --arg msg "🔄 build $NEXT/$MAX [$PHASE] tests=$TESTS_GREEN review=$REVIEWED pr=$PR_OK | タスク: ${TASK:0:80}" \
+jq -n --arg reason "$REASON" --arg msg "🔄 atdd $NEXT/$MAX [$PHASE] tests=$TESTS_GREEN review=$REVIEWED pr=$PR_OK | 作業リスト ${DONE_N}/$((DONE_N+TODO_N)) 完了 | ${TASK:0:60}" \
   '{decision:"block", reason:$reason, systemMessage:$msg}'
 exit 0

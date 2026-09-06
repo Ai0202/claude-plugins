@@ -29,7 +29,7 @@ SNIPPET=$(cat << JSON
     "review-loop@dev-tools": true,
     "test-plan@dev-tools": true,
     "pr-docs@dev-tools": true,
-    "build@dev-tools": true
+    "atdd@dev-tools": true
   }
 }
 JSON
