@@ -27,8 +27,8 @@ review-loop / test-plan / pr-docs は独立していて、どれか1つだけ入
 0. **サイズ判定** S(バグ修正・文言など 50 行未満) / M(通常) / L(複数リポジトリ・スキーマや API 変更・認証決済)。S は grilling・設計・ADR を飛ばし、再現テスト 1〜3 本だけで RED → GREEN → REVIEW → PR を回す。`--size` で指定もできる
 0. **Notion タスクを確保** 無ければ register-task スキルで作る(重複チェック込み。task-hub は使わない)。以後このページが司令塔: 概要 / 設計 / ADR / テスト計画 / チェックリスト(リポジトリごと) / 関連 PR / 進捗ログ
 1. **PLAN** grilling スキルがあれば仕様を問い詰めて固め、設計と ADR を Notion に書き、/test-plan でテスト計画(トロフィー型: 結合が主力、E2E は happy path 1〜2 本)を作って承認を待つ(質問があれば `<atdd>PAUSE</atdd>` で止まる)
-2. **RED** 各 TC に対応する失敗するテストを先に書き、run-tests.sh で失敗を確認
-3. **GREEN** 最小の実装でテストを通す(run-tests.sh で exit 0)
+2. **RED** `atdd:test-writer`(sonnet)が各 TC に対応する失敗するテストを書き、メインが run-tests.sh で失敗を確認
+3. **GREEN** `atdd:implementer`(sonnet)が最小の実装でテストを通し、メインが run-tests.sh と `git diff` で検証(モデルは `plugins/atdd/agents/*.md` の `model:` で変更可)
 4. **REVIEW** /review-loop で品質レビュー → 合格
 5. **PR** commit → push → ドラフト PR → /pr-docs で本文と解説を更新
 
@@ -211,6 +211,7 @@ bash "$(find ~/.claude/plugins -path '*review-loop*' -name change-failure-rate.s
 | `plugins/test-plan/commands/` | /test-plan(計画作成)、/test-check(突合・実行確認) |
 | `plugins/test-plan/scripts/` | 比較元判定・差分取得・テスト実行と結果記録(run-tests.sh)・テスト合格マーカー・イベントログ |
 | `plugins/atdd/commands/` | /atdd(ATDD オーケストレータ)、/cancel-atdd |
+| `plugins/atdd/agents/` | test-writer(RED)、implementer(GREEN)。既定 model: sonnet |
 | `plugins/atdd/hooks/hooks.json` | Stop フック: 完了条件を機械判定し、未達なら次フェーズを指示して続行 |
 | `plugins/atdd/scripts/` | 状態ファイル作成・Stop フック本体・差分取得・イベントログ |
 | `plugins/pr-docs/commands/` | /pr-docs(PR 本文の書き直し + 図つき新卒向け解説コメント) |
