@@ -130,6 +130,7 @@ echo "$DATA" | jq -s -r '
    elif .event=="pr_docs.prompt" then " pr=#\(.pr)"
    elif .event=="atdd.iteration" then " \(.iteration) [\(.phase)] tests=\(.tests_green) review=\(.reviewed) pr=\(.pr_ok)"
    elif .event=="atdd.done" then " iterations=\(.iterations)"
+   elif .event=="atdd.resume" then " (再開)"
    elif .event=="atdd.abort" then " iterations=\(.iterations) tests=\(.tests_green) review=\(.reviewed) pr=\(.pr_ok)"
    elif .event=="tests.run" then " exit=\(.exit)"
    else "" end)'

@@ -22,12 +22,26 @@ esac
 
 STATE="$ROOT/.claude/atdd.local.md"
 mkdir -p "$ROOT/.claude"
+SESSION="${CLAUDE_CODE_SESSION_ID:-${CLAUDE_SESSION_ID:-}}"
+
+# 再開: 状態ファイルがあれば、このセッションに引き継いで作業リストを表示する
 if [ -f "$STATE" ]; then
-  echo "既に /atdd が進行中です($STATE)。作業リストを読んで続きから再開してください。やり直すなら /cancel-atdd を先に実行してください"
+  SBRANCH=$(sed -n '/^---$/,/^---$/{ /^branch:/{ s/^branch:[[:space:]]*//; p; } }' "$STATE" | head -1)
+  if [ -n "$SBRANCH" ] && [ "$SBRANCH" != "$BRANCH" ]; then
+    echo "進行中の /atdd はブランチ $SBRANCH のものです(現在: $BRANCH)。git checkout $SBRANCH してから再実行するか、/cancel-atdd で破棄してください" >&2
+    exit 1
+  fi
+  if [ -n "$SESSION" ]; then
+    sed "s/^session_id: .*/session_id: $SESSION/" "$STATE" > "$STATE.tmp.$$" && mv "$STATE.tmp.$$" "$STATE"
+  fi
+  DIR="$(cd "$(dirname "$0")" && pwd)"
+  "$DIR/events-log.sh" atdd.resume >/dev/null 2>&1 || true
+  echo "進行中の /atdd を再開します(状態: $STATE)。作業リスト:"
+  awk '/^---$/{i++; next} i>=2' "$STATE"
+  echo ""
+  echo "未チェックの最初の項目から続けてください。やり直すなら /cancel-atdd"
   exit 0
 fi
-
-SESSION="${CLAUDE_SESSION_ID:-}"
 TASK="${TASK_PARTS[*]:-}"
 cat > "$STATE" <<EOF
 ---

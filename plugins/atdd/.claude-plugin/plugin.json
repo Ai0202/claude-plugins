@@ -1,5 +1,5 @@
 {
   "name": "atdd",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "ATDD の red-green ループを 1 本に繋ぐオーケストレータ(/atdd)。テスト計画 → 失敗するテスト(red) → 実装(green) → 品質レビュー → PR 更新 を、Stop フックが客観条件(テスト緑・レビュー合格・PR 追随)で判定しながら回す。test-plan / review-loop / pr-docs が必要"
 }
