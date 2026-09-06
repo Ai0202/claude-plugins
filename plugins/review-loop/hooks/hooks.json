@@ -1,11 +1,12 @@
 {
   "hooks": {
-    "Stop": [
+    "PreToolUse": [
       {
+        "matcher": "Bash",
         "hooks": [
           {
             "type": "command",
-            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/scripts/review-stop-gate.sh\""
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/scripts/pr-ready-gate.sh\""
           }
         ]
       }

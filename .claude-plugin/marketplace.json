@@ -7,7 +7,12 @@
     {
       "name": "review-loop",
       "source": "./plugins/review-loop",
-      "description": "リスクティア判定つき自律レビューループ(4観点並列レビュー + Stopフックゲート + 実行ログ計測)"
+      "description": "コード品質の自律レビューループ(3観点並列レビュー + PR ready ゲート + 利用状況の計測)"
+    },
+    {
+      "name": "test-plan",
+      "source": "./plugins/test-plan",
+      "description": "テスト計画による仕様担保(/test-plan で計画 → /test-check で突合)"
     }
   ]
 }

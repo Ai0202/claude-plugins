@@ -1,6 +1,6 @@
 ---
 name: performance-reviewer
-description: 変更差分のパフォーマンスレビュー専門エージェント。self-review コマンドから呼ばれる。N+1・計算量・メモリ・I/Oの観点でコード差分を監査する。
+description: 変更差分のパフォーマンスレビュー専門エージェント。self-review / review-loop コマンドから呼ばれる。N+1・計算量・メモリ・I/Oの観点でコード差分を監査する。
 tools: Read, Grep, Glob, Bash
 ---
 

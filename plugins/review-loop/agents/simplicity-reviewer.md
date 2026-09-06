@@ -1,6 +1,6 @@
 ---
 name: simplicity-reviewer
-description: 変更差分のシンプルさ・設計レビュー専門エージェント。self-review コマンドから呼ばれる。可読性・複雑度・重複・命名の観点でコード差分を監査する。
+description: 変更差分のシンプルさ・設計レビュー専門エージェント。self-review / review-loop コマンドから呼ばれる。可読性・複雑度・重複・命名の観点でコード差分を監査する。
 tools: Read, Grep, Glob, Bash
 ---
 

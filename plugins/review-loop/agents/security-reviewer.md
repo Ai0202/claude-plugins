@@ -1,6 +1,6 @@
 ---
 name: security-reviewer
-description: 変更差分のセキュリティレビュー専門エージェント。self-review コマンドから呼ばれる。脆弱性・認可漏れ・機密情報の観点でコード差分を監査する。
+description: 変更差分のセキュリティレビュー専門エージェント。self-review / review-loop コマンドから呼ばれる。脆弱性・認可漏れ・機密情報の観点でコード差分を監査する。
 tools: Read, Grep, Glob, Bash
 ---
 

@@ -26,7 +26,8 @@ SNIPPET=$(cat << JSON
     }
   },
   "enabledPlugins": {
-    "review-loop@dev-tools": true
+    "review-loop@dev-tools": true,
+    "test-plan@dev-tools": true
   }
 }
 JSON
@@ -46,7 +47,7 @@ else
 fi
 
 # Webサンドボックスでのログ永続化先
-touch .claude/review-loop.log.jsonl
+touch .claude/dev-tools.log.jsonl
 
 echo ""
-echo "次のステップ: git add .claude && git commit -m 'chore: enable review-loop plugin'"
+echo "次のステップ: git add .claude && git commit -m 'chore: enable dev-tools plugins'"

@@ -1,19 +1,21 @@
 ---
-description: 変更のリスクティアを判定し、ティアに応じた回数でレビュー→修正を自動反復する。実行ログを記録する
+description: 変更のリスクティアを判定し、ティアに応じた回数で品質レビュー(セキュリティ/パフォーマンス/シンプルさ)→修正を自動反復する。実行ログを記録する
 allowed-tools: Bash, Read, Grep, Glob, Edit, Write, Task
 ---
 
-変更差分に対して「リスクティア判定 → レビュー → 修正 → 再レビュー」の自律ループを実行してください。
+変更差分に対して「リスクティア判定 → 品質レビュー → 修正 → 再レビュー」の自律ループを実行してください。
 引数: $ARGUMENTS(最大ラウンド数を強制指定したい場合のみ。通常は省略し、ティア判定に任せる)
+
+このループは **コードの品質**(セキュリティ・パフォーマンス・シンプルさ)だけを見る。仕様どおりかどうかは test-plan プラグインの /test-check の担当で、ここでは扱わない。
 
 ## セットアップ
 
 1. `RUN_ID=$(date +%Y%m%d%H%M%S)` を生成する
-2. レビュー対象の差分を特定する(スクリプトの探索順: `${CLAUDE_PLUGIN_ROOT}/scripts/` → `find ~/.claude/plugins -name review-diff.sh 2>/dev/null | head -1`):
+2. スクリプトの場所を特定する: `${CLAUDE_PLUGIN_ROOT}/scripts/`。無ければ `find ~/.claude/plugins -path '*review-loop*' -name review-diff.sh 2>/dev/null | head -1` の dirname
+3. レビュー対象の差分を特定する:
    - `<scripts-dir>/review-diff.sh --stat` で比較元(先頭行 `# base: ...`)と変更ファイル一覧を取得し、**ティア判定の前にユーザーへ提示する**
    - 比較元は `git config review-loop.base` → 現在ブランチの PR のベース → develop / main / master のうち HEAD に最も近いもの の順で自動判定される。違うブランチと比べたい場合は `git config review-loop.base <branch>` で固定できる
    - `<scripts-dir>/review-diff.sh` で全文差分(分岐点以降のコミット + 未コミット変更)を取得する。差分ゼロなら終了
-3. `.claude/specs/<ブランチ名>.md`(/plan の受け入れ基準)の有無を確認し、あればその存在を宣言する(spec-compliance-reviewer が仕様ソースとして使う)
 
 ## ステップ0: リスクティア判定
 
@@ -21,10 +23,10 @@ allowed-tools: Bash, Read, Grep, Glob, Edit, Write, Task
 
 | ティア | 判定条件 | 最大ラウンド | 実行する観点 |
 |---|---|---|---|
-| 0 | 文言・翻訳ファイル・ドキュメント・コメント・CSS/スタイルのみの変更(ロジック変更なし) | 1 | spec-compliance のみ |
-| 1 | 差分50行未満、かつティア3の条件に該当しない | 1 | 4観点すべて |
-| 2 | 上記以外すべて(デフォルト) | 3 | 4観点すべて |
-| 3 | 以下のいずれかを含む: DBマイグレーション/DDL(CREATE・ALTER・DROP)、認証・認可、決済・課金・金額計算、データ削除(DELETE・TRUNCATE)、外部APIの契約変更(リクエスト/レスポンス形式)、トランザクション・ロック・並行処理、暗号・個人情報の取り扱い | 3 | 4観点すべて + spec-compliance に呼び出し元・影響範囲の調査を明示的に強化指示 |
+| 0 | 文言・翻訳ファイル・ドキュメント・コメント・CSS/スタイルのみの変更(ロジック変更なし) | 1 | simplicity のみ |
+| 1 | 差分50行未満、かつティア3の条件に該当しない | 1 | 3観点すべて |
+| 2 | 上記以外すべて(デフォルト) | 3 | 3観点すべて |
+| 3 | 以下のいずれかを含む: DBマイグレーション/DDL(CREATE・ALTER・DROP)、認証・認可、決済・課金・金額計算、データ削除(DELETE・TRUNCATE)、外部APIの契約変更(リクエスト/レスポンス形式)、トランザクション・ロック・並行処理、暗号・個人情報の取り扱い | 3 | 3観点すべて + security に呼び出し元・影響範囲の調査を明示的に強化指示 |
 
 **ホットスポット補正**: CLAUDE.md に過去の障害多発パス(ホットスポット)が列挙されている場合、該当パスへの変更はティアを1つ上げる。
 
@@ -35,13 +37,13 @@ $ARGUMENTS で最大ラウンド数が指定された場合はそれを優先す
 
 ### ステップA: レビュー
 ティアで決まった観点のサブエージェントを **並列で** 起動し、現時点の差分をレビューさせる:
-- security-reviewer / performance-reviewer / simplicity-reviewer / spec-compliance-reviewer
+- security-reviewer / performance-reviewer / simplicity-reviewer
 
 ### ステップB: 集計とログ記録
-Critical / Warning / Info の件数を集計し、**必ず** 以下でログに記録する(スクリプトの探索順: `${CLAUDE_PLUGIN_ROOT}/scripts/` → リポジトリの `.claude/scripts/` → `~/.claude/scripts/`。見つからない場合は `find ~/.claude/plugins -name review-loop-log.sh 2>/dev/null | head -1` で特定する):
+Critical / Warning / Info の件数を集計し、**必ず** 以下でログに記録する:
 
 ```bash
-<scripts-dir>/review-loop-log.sh "$RUN_ID" <round> <critical数> <warning数> <info数> "<verdict>" <tier>
+<scripts-dir>/events-log.sh review.round run_id="$RUN_ID" round=<round> critical=<n> warning=<n> info=<n> verdict=<verdict> tier=<tier>
 ```
 
 verdict は: `pass` / `continue` / `max-rounds-reached`
@@ -50,7 +52,7 @@ verdict は: `pass` / `continue` / `max-rounds-reached`
 - **pass(Critical=0 かつ Warning=0)**: `<scripts-dir>/mark-review-passed.sh` を実行して合格マーカーを更新し、ループを終了する
 - **continue**: すべての Critical と Warning を修正してから次ラウンドへ。修正時の絶対ルール:
   - テストを削除・弱体化して指摘を消さない
-  - 仕様が曖昧で修正方針が複数ありうる指摘は、勝手に判断せずループを中断してユーザーに質問する
+  - 修正方針が複数ありうる指摘は、勝手に判断せずループを中断してユーザーに質問する
   - 誤検知と判断した指摘は修正せず理由を記録し、以降のラウンドでカウントから除外する(除外理由は最終レポートに明記)
 - **最終ラウンドでも未収束**: verdict を max-rounds-reached でログに記録し、マーカーは更新せず、残存指摘を最終レポートに出す
 
@@ -66,13 +68,15 @@ verdict は: `pass` / `continue` / `max-rounds-reached`
 ## 各ラウンドで修正した内容(1行ずつ)
 ## 誤検知として除外した指摘と理由
 ## 残存する Info(修正不要と判断したもの)
-## 最終判定: リリース可 / 要人間判断
+## 最終判定: 合格 / 要人間判断
 ```
 
-**ティア3の場合**: 収束しても最終判定は必ず「リリース可(ただしティア3のため人間の最終確認必須)」とし、人間が確認すべきポイント(不可逆な操作・影響範囲)を箇条書きで添える。
+**ティア3の場合**: 収束しても最終判定は必ず「合格(ただしティア3のため人間の最終確認必須)」とし、人間が確認すべきポイント(不可逆な操作・影響範囲)を箇条書きで添える。
+
+合格後は、このブランチにテスト計画(`.claude/specs/<ブランチ名>.md`)があれば「/test-check も必要」、無ければ「`gh pr ready` または `gh pr create` でレビュー依頼できる」と一言添える。
 
 ## 注意
 
 - Info レベルは修正対象にしない(過剰な変更によるチャーンを避ける)
 - 修正で差分が広がった場合、次ラウンドは広がった差分全体をレビューする
-- リポジトリ内に `.claude/review-loop.log.jsonl` が存在する運用(Web/リポジトリモード)では、ログファイルも `git add` して差分に含めること(クラウドサンドボックスではコミットしないとログが消えるため)
+- リポジトリ内に `.claude/dev-tools.log.jsonl` が存在する運用(Web/リポジトリモード)では、ログファイルも `git add` して差分に含めること(クラウドサンドボックスではコミットしないとログが消えるため)
