@@ -1,5 +1,0 @@
-{
-  "name": "design-check",
-  "version": "1.0.0",
-  "description": "画面に表示される要素が Figma のデザインと一致しているかを突合する(/design-check)。Figma MCP から要素・文言・トークンを取り、ブラウザ MCP で実装画面の DOM とスクリーンショットを取って比較し、要素の欠落・文言違い・色やタイポのずれを Critical / Warning / Info で報告する。合格すると差分ハッシュつきマーカーを書き、review-loop のゲートと /atdd がそれを見る"
-}

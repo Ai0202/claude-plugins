@@ -6,17 +6,16 @@
 |---|---|---|
 | **review-loop** | `/review-loop` `/self-review` `/dev-stats` | コード品質。security / performance / simplicity の3観点で並列レビューし、修正まで自動で回す。PR をレビュー可能にする瞬間をゲートする |
 | **test-plan** | `/test-plan` `/test-check` | 仕様担保。実装前にテスト計画を作り、実装後に「計画どおりのテストが存在・実行・合格しているか」を突合する |
-| **design-check** | `/design-check` | デザイン担保。画面に表示される要素が Figma と一致しているかを突合する。Figma MCP から要素・文言・トークンを取り、ブラウザ MCP で実装画面の DOM(計算済みスタイル)とスクリーンショットを取って比べ、欠落・文言違い・色やタイポのずれを Critical / Warning / Info で報告する |
-| **atdd** | `/atdd` `/cancel-atdd` | ATDD のオーケストレータ。Notion タスク / PR / チケット / 説明を入力に、**Notion のタスクページを司令塔**として 仕様の詰め(grilling) → 設計・ADR → テスト計画 → 失敗するテスト(RED) → 実装(GREEN) → Figma 突合(DESIGN、Figma があるとき) → 品質レビュー → PR 更新 を 1 本に繋ぎ、Stop フックが「テスト緑・デザイン一致・レビュー合格・PR 追随」を機械判定して完了まで回す。リポジトリをまたぐタスクは同じ Notion タスクを共有。上の 4 つが必要 |
+| **atdd** | `/atdd` `/cancel-atdd` | ATDD のオーケストレータ。Notion タスク / PR / チケット / 説明を入力に、**Notion のタスクページを司令塔**として 仕様の詰め(grilling) → 設計・ADR → テスト計画 → 失敗するテスト(RED) → 実装(GREEN) → 品質レビュー → PR 更新 を 1 本に繋ぎ、Stop フックが「テスト緑・レビュー合格・PR 追随」を機械判定して完了まで回す。リポジトリをまたぐタスクは同じ Notion タスクを共有。上の 3 つが必要 |
 | **pr-docs** | `/pr-docs` | PR の仕上げ。実装内容からタイトル・本文をテンプレートに沿って書き直し、Before/After の図(Mermaid: ERD・シーケンス・クラス・フロー、必要な種類だけ)つきの新卒向け解説を PR コメントで 1 つ付ける(2回目以降は同じコメントを更新)。push 済み・PR ありで作業が止まったとき Stop フックが追随を促す |
 
-review-loop / test-plan / design-check / pr-docs は独立していて、どれか1つだけ入れても動く。atdd はそれらを順に呼ぶオーケストレータ。接点は `.claude/specs/<branch>.md`(テスト計画。Figma の参照もここ)と `.git/` 内のマーカーだけ。
+review-loop / test-plan / pr-docs は独立していて、どれか1つだけ入れても動く。atdd はその 3 つを順に呼ぶオーケストレータ。接点は `.claude/specs/<branch>.md`(テスト計画)と `.git/` 内のマーカーだけ。
 
 ## 推奨ワークフロー
 
 ### まとめて任せる: `/atdd <チケットURL | PR | タスクの説明>`
 
-開発作業の入口はこれ 1 つ。test-plan / design-check / review-loop / pr-docs / register-task は中から呼ばれるので、どのスキルを使うか意識しなくてよい。
+開発作業の入口はこれ 1 つ。test-plan / review-loop / pr-docs / register-task は中から呼ばれるので、どのスキルを使うか意識しなくてよい。
 
 ```
 /atdd 注文一覧に CSV エクスポートを追加する    # 説明から(Notion タスクを register-task で作る)
@@ -27,16 +26,15 @@ review-loop / test-plan / design-check / pr-docs は独立していて、どれ�
 
 0. **サイズ判定** S(バグ修正・文言など 50 行未満) / M(通常) / L(複数リポジトリ・スキーマや API 変更・認証決済)。S は grilling・設計・ADR を飛ばし、再現テスト 1〜3 本だけで RED → GREEN → REVIEW → PR を回す。`--size` で指定もできる
 0. **Notion タスクを確保** 無ければ register-task スキルで作る(重複チェック込み。task-hub は使わない)。以後このページが司令塔: 概要 / 設計 / ADR / テスト計画 / チェックリスト(リポジトリごと) / 関連 PR / 進捗ログ
-1. **PLAN** grilling スキルがあれば仕様を問い詰めて固め、設計と ADR を Notion に書き、/test-plan でテスト計画(トロフィー型: 結合が主力、E2E は happy path 1〜2 本)を作って承認を待つ(質問があれば `<atdd>PAUSE</atdd>` で止まる)。入力に Figma のリンクがあれば計画の「デザイン(Figma)」節に画面ごとに書く
+1. **PLAN** grilling スキルがあれば仕様を問い詰めて固め、設計と ADR を Notion に書き、/test-plan でテスト計画(トロフィー型: 結合が主力、E2E は happy path 1〜2 本)を作って承認を待つ(質問があれば `<atdd>PAUSE</atdd>` で止まる)
 2. **RED** `atdd:test-writer`(sonnet)が各 TC に対応する失敗するテストを書き、メインが run-tests.sh で失敗を確認
 3. **GREEN** `atdd:implementer`(sonnet)が最小の実装でテストを通し、メインが run-tests.sh と `git diff` で検証(モデルは `plugins/atdd/agents/*.md` の `model:` で変更可)
-4. **DESIGN**(Figma があるときだけ)/design-check で画面を Figma と突合 → 欠落・文言違い・色やタイポのずれを直して合格
-5. **REVIEW** /review-loop で品質レビュー → 合格
-6. **PR** commit → push → ドラフト PR → /pr-docs で本文と解説を更新
+4. **REVIEW** /review-loop で品質レビュー → 合格
+5. **PR** commit → push → ドラフト PR → /pr-docs で本文と解説を更新
 
-ローカルの作業リスト `.claude/atdd.local.md` はステップごと、Notion はフェーズの区切り(PLAN 承認 / RED / GREEN / DESIGN / REVIEW 合格 / PR)ごとに書き戻す。セッションが切れても `/atdd` で再開でき、Web サンドボックスなど状態ファイルが無い環境では `/atdd <Notion URL>` で Notion から作り直す。
+ローカルの作業リスト `.claude/atdd.local.md` はステップごと、Notion はフェーズの区切り(PLAN 承認 / RED / GREEN / REVIEW 合格 / PR)ごとに書き戻す。セッションが切れても `/atdd` で再開でき、Web サンドボックスなど状態ファイルが無い環境では `/atdd <Notion URL>` で Notion から作り直す。
 
-Stop フックが毎回、**マーカーだけで**完了を判定する(Claude の「終わりました」は使わない): run-tests.sh の最終結果が exit 0 でその後コードが変わっていない / テスト計画に Figma の参照があればデザイン突合の合格マーカーが現在の差分と一致 / レビュー合格マーカーが現在の差分と一致 / PR があれば push 済みで pr-docs が HEAD に追随。未達なら次のフェーズを指示して続行、既定 10 周で打ち切り(`--max-iterations N`)。止めるときは `/cancel-atdd`。状態ファイルは自動で `.git/info/exclude` に追加される。
+Stop フックが毎回、**マーカーだけで**完了を判定する(Claude の「終わりました」は使わない): run-tests.sh の最終結果が exit 0 でその後コードが変わっていない / レビュー合格マーカーが現在の差分と一致 / PR があれば push 済みで pr-docs が HEAD に追随。未達なら次のフェーズを指示して続行、既定 10 周で打ち切り(`--max-iterations N`)。止めるときは `/cancel-atdd`。状態ファイルは自動で `.git/info/exclude` に追加される。
 
 仕様の詰めに使う 仕様の詰めに使う grilling は Matt Pocock のスキル集に入っている: `/plugin install mattpocock-skills@claude-plugins-official`(スキル名 `mattpocock-skills:grilling`)。無くても test-plan の質問ルールで動く。
 
@@ -48,29 +46,15 @@ Stop フックが毎回、**マーカーだけで**完了を判定する(Claude 
 実装         … 途中の往復・ドラフト PR(gh pr create --draft)・push は自由
    ↓
 /test-check  … 計画の各 TC にテストがあり、実行して通ることを確認(計画があるブランチのみ)
-/design-check … 画面の要素・文言・色・余白を Figma と突合(計画の「デザイン(Figma)」節があるブランチのみ。
-               引数に Figma URL と実装 URL を渡せば単発でも使える)
 /review-loop … 3観点の品質レビュー → 修正 → 再レビューを自動反復
    ↓
 /pr-docs     … PR 本文をテンプレートどおりに書き直し、Before/After の図つき解説を PR コメントに
                (push 済み・PR ありで作業が止まると Stop フックが促す)
    ↓
-gh pr ready  … ここでゲートがマーカーを確認。未合格なら止めて /review-loop(/test-check、/design-check)を指示
+gh pr ready  … ここでゲートがマーカーを確認。未合格なら止めて /review-loop(/test-check)を指示
 ```
 
-ゲートが止めるのは **`gh pr ready` と `--draft` 無しの `gh pr create`** だけ。合格後に1行でもコードを変えると差分のハッシュが変わり、再度レビューが必要になる。ゲートが見るマーカーは 3 つ: レビュー合格(常に)、テスト合格(テスト計画があるブランチ)、デザイン突合の合格(テスト計画の「デザイン(Figma)」節に figma.com の参照があるブランチ)。
-
-### /design-check の中身
-
-Figma と実装を「要素リスト」にして 1 要素ずつ突き合わせる。確認できる深さは環境で変わり、報告にレベルを明記する:
-
-| レベル | 何を見るか | 必要なもの |
-|---|---|---|
-| L3 見た目 | Figma のスクリーンショットと同じ幅で撮った実装のスクリーンショットを見比べる(DOM に出ない画像・アイコン・影の裏取り) | Figma MCP + ブラウザ MCP(Claude in Chrome / Playwright)+ 動く画面 |
-| L2 DOM | `scripts/dom-snapshot.js` を画面で実行し、要素・文言・順序・計算済みスタイル(フォント・色・余白)を JSON で取る | 同上 |
-| L1 静的 | 差分のコンポーネント / テンプレート / CSS を読んで要素・文言・トークンを起こす | Figma MCP のみ |
-
-Figma 側は `get_metadata`(要素の一覧と順序)/ `get_design_context`(文言・トークン)/ `get_screenshot`。深刻度は、要素の欠落・文言違い・操作要素の不足が Critical、状態(hover / disabled / empty)や色・タイポ・余白(3px 以上)のずれが Warning、2px 以内の微差とアクセシビリティが Info。文言は「意味が同じ」ではなく文字列として同じかで見る。Figma の URL は推測せず、無ければ 1 問だけ聞く。
+ゲートが止めるのは **`gh pr ready` と `--draft` 無しの `gh pr create`** だけ。合格後に1行でもコードを変えると差分のハッシュが変わり、再度レビューが必要になる。
 
 ドラフト作成(`gh pr create --draft`)は止めないが、「その時点でレビュー済みだったか」は記録する。ドラフトの前にレビューしたいときは先に `/review-loop`(または `/self-review`)を実行すればよい。ドラフトも常にゲートしたいリポジトリでは `git config review-loop.gate-draft true`。
 
@@ -103,7 +87,6 @@ Claude Code内で:
 /plugin marketplace add Ai0202/claude-plugins
 /plugin install review-loop@dev-tools
 /plugin install test-plan@dev-tools
-/plugin install design-check@dev-tools
 /plugin install pr-docs@dev-tools
 /plugin install atdd@dev-tools
 ```
@@ -119,7 +102,7 @@ Claude Code内で:
       "source": { "source": "github", "repo": "Ai0202/claude-plugins" }
     }
   },
-  "enabledPlugins": { "review-loop@dev-tools": true, "test-plan@dev-tools": true, "design-check@dev-tools": true, "pr-docs@dev-tools": true, "atdd@dev-tools": true }
+  "enabledPlugins": { "review-loop@dev-tools": true, "test-plan@dev-tools": true, "pr-docs@dev-tools": true, "atdd@dev-tools": true }
 }
 ```
 
@@ -194,11 +177,10 @@ Claude 以外(例: Codex MCP)に任せたい観点は、その agent の本文�
 | `self_review.result` | /self-review | critical, warning, info, verdict |
 | `test_plan.created` | /test-plan | cases |
 | `test_check.result` | /test-check | planned, covered, unplanned, verdict |
-| `design_check.result` | /design-check | screens, level(0〜3), critical, warning, info, verdict |
-| `gate.pass` / `gate.block` | gh pr ready / create / create --draft | action(pr.ready / pr.create / pr.draft), reason(review / tests / design), reviewed, has_test_plan |
+| `gate.pass` / `gate.block` | gh pr ready / create / create --draft | action(pr.ready / pr.create / pr.draft), reason(review / tests), reviewed, has_test_plan |
 | `pr_docs.prompt` / `pr_docs.done` | Stop フックが促した / /pr-docs 完了 | pr, comments |
 | `tests.run` | run-tests.sh | exit |
-| `atdd.start` / `atdd.iteration` / `atdd.pause` / `atdd.done` / `atdd.abort` | /atdd の各周回 | iteration, phase, tests_green, design_ok, reviewed, pr_ok |
+| `atdd.start` / `atdd.iteration` / `atdd.pause` / `atdd.done` / `atdd.abort` | /atdd の各周回 | iteration, phase, tests_green, reviewed, pr_ok |
 
 集計は Claude Code 内で `/dev-stats 14 -r icaria-inc/oyster-apps -r icaria-inc/misignal_django` のように打つ(どのリポジトリからでも `~/.claude/` のログを読む。`-r` を付けるとマージ済み PR に対するカバー率も出る)。シェルから直接:
 
@@ -218,7 +200,6 @@ bash "$(find ~/.claude/plugins -path '*review-loop*' -name change-failure-rate.s
 - **ゲートのブロック率が下がる** → レビューしてから PR に出す習慣がついている
 - **1周目の平均指摘数が下がる** → 最初から品質の高いコードを書けている
 - **テスト計画のカバー率が高く、計画外の変更が少ない** → 仕様どおりに作れている
-- **/design-check の 1 回目の指摘数が減る** → 最初から Figma どおりに作れている。L1(静的)ばかりならブラウザ MCP を整備して L2/L3 で見る
 - **/atdd の完走率が高く、平均周回が少ない** → 計画とテストが最初から噛み合っている
 - **変更障害率が下がる** → 上の指標が実際の障害減少につながっている(最終的な成果指標)。数字に意味を持たせる運用は 2 つ: **PR に種別ラベル(`type:feature` / `type:bugfix` / `type:hotfix` / `type:chore`。revert は hotfix)を 1 つ付ける**、**不具合を直す PR の本文に `Caused-by: #<原因PR>`(調べて該当なしなら `Caused-by: unknown`)を 1 行書く**。/atdd の PR ステップはどちらも自動で行う。原因が期間外の古い不具合は数えないので、直近のリリース品質だけが出る
 
@@ -241,8 +222,6 @@ bash "$(find ~/.claude/plugins -path '*review-loop*' -name change-failure-rate.s
 | `plugins/review-loop/scripts/` | 比較元判定・差分取得・ゲート・合格マーカー・イベントログ・集計・変更障害率・許可ユーザー判定(dev-tools-guard.sh) |
 | `plugins/test-plan/commands/` | /test-plan(計画作成)、/test-check(突合・実行確認) |
 | `plugins/test-plan/scripts/` | 比較元判定・差分取得・テスト実行と結果記録(run-tests.sh)・テスト合格マーカー・イベントログ |
-| `plugins/design-check/commands/` | /design-check(Figma と実装画面の突合。修正はしない) |
-| `plugins/design-check/scripts/` | Figma 参照の収集(design-refs.sh: テスト計画のデザイン節 → PR 本文)・DOM スナップショット(dom-snapshot.js: ブラウザで実行し要素と計算済みスタイルを JSON 化)・デザイン合格マーカー・比較元判定・差分取得・イベントログ |
 | `plugins/atdd/commands/` | /atdd(ATDD オーケストレータ)、/cancel-atdd |
 | `plugins/atdd/agents/` | test-writer(RED)、implementer(GREEN)。既定 model: sonnet |
 | `plugins/atdd/hooks/hooks.json` | Stop フック: 完了条件を機械判定し、未達なら次フェーズを指示して続行 |

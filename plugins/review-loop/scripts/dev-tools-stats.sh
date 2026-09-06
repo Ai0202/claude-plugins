@@ -46,7 +46,6 @@ echo "$DATA" | jq -s '
     "通過": ([$g[] | select(.event=="gate.pass" and .action!="pr.draft")] | length),
     "ブロック(レビュー未合格)": ([$g[] | select(.event=="gate.block" and .reason=="review")] | length),
     "ブロック(テスト未確認)": ([$g[] | select(.event=="gate.block" and .reason=="tests")] | length),
-    "ブロック(デザイン未突合)": ([$g[] | select(.event=="gate.block" and .reason=="design")] | length),
     "ブロック率(%)": (if $n>0 then (([$g[] | select(.event=="gate.block")] | length) / $n * 100 | round) else null end),
     "通過時にテスト計画があった割合(%)": (([$g[] | select(.event=="gate.pass" and .action!="pr.draft")] | length) as $p |
       if $p>0 then (([$g[] | select(.event=="gate.pass" and .action!="pr.draft" and .has_test_plan==true)] | length) / $p * 100 | round) else null end),
@@ -97,19 +96,6 @@ echo "$DATA" | jq -s '
     "平均カバー率(%)": (if ($c|length)>0 then (([$c[] | select(.planned>0) | .covered / .planned] | if length>0 then add/length*100|round else null end)) else null end),
     "計画外の振る舞い変更が見つかった回数": (if ($c|length)>0 then ([$c[] | select((.unplanned // 0) > 0)] | length) else null end)
   }'
-
-echo ""
-echo "== 3.5 デザイン突合(/design-check)=="
-echo "  1 回目の指摘数が減る = 最初から Figma どおりに作れている。L1(静的)ばかりならブラウザ MCP の整備を"
-echo "$DATA" | jq -s '
-  ([.[] | select(.event=="design_check.result")]) as $d | ($d | length) as $n |
-  if $n == 0 then "実行なし" else {
-    "実行数": $n,
-    "合格率(%)": (([$d[] | select(.verdict=="pass")] | length) / $n * 100 | round),
-    "平均指摘数(Critical+Warning)": (([$d[] | (.critical + .warning)] | add) / $n * 10 | round / 10),
-    "平均画面数": (([$d[].screens] | add) / $n * 10 | round / 10),
-    "レベル別の実行数": ($d | group_by(.level) | map({key: ("L" + (.[0].level | tostring)), value: length}) | from_entries)
-  } end'
 
 echo ""
 echo "== 4. /atdd(ATDD ループ)=="
@@ -176,10 +162,9 @@ echo "$DATA" | jq -s -r '
    elif .event=="gate.pass" then " action=\(.action) reviewed=\(.reviewed) test_plan=\(.has_test_plan)"
    elif .event=="test_check.result" then " covered=\(.covered)/\(.planned) unplanned=\(.unplanned // 0) \(.verdict)"
    elif .event=="test_plan.created" then " cases=\(.cases)"
-   elif .event=="design_check.result" then " screens=\(.screens) L\(.level) c=\(.critical) w=\(.warning) i=\(.info) \(.verdict)"
    elif .event=="pr_docs.done" then " pr=#\(.pr) comments=\(.comments)"
    elif .event=="pr_docs.prompt" then " pr=#\(.pr)"
-   elif .event=="atdd.iteration" then " \(.iteration) [\(.phase)] tests=\(.tests_green)\(if .design_ok != null then " design=\(.design_ok)" else "" end) review=\(.reviewed) pr=\(.pr_ok)"
+   elif .event=="atdd.iteration" then " \(.iteration) [\(.phase)] tests=\(.tests_green) review=\(.reviewed) pr=\(.pr_ok)"
    elif .event=="atdd.done" then " iterations=\(.iterations)"
    elif .event=="atdd.resume" then " (再開)"
    elif .event=="atdd.abort" then " iterations=\(.iterations) tests=\(.tests_green) review=\(.reviewed) pr=\(.pr_ok)"
