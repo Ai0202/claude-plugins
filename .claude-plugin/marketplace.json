@@ -13,6 +13,11 @@
       "name": "test-plan",
       "source": "./plugins/test-plan",
       "description": "テスト計画による仕様担保(/test-plan で計画 → /test-check で突合)"
+    },
+    {
+      "name": "pr-docs",
+      "source": "./plugins/pr-docs",
+      "description": "PR の説明を実装内容から書き直し、新卒向け解説を PR のインラインコメントで付ける(Stop フックで追随を促す)"
     }
   ]
 }

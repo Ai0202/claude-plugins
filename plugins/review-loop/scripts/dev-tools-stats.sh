@@ -95,7 +95,7 @@ echo ""
 echo "== リポジトリ別(レビュー実行数 / ゲート通過数)=="
 echo "$DATA" | jq -s -r '
   group_by(.repo) | map(
-    "  \(.[0].repo): review \([.[] | select(.event=="review.pass")] | length) 回 / gate 通過 \([.[] | select(.event=="gate.pass")] | length) 回 / gate ブロック \([.[] | select(.event=="gate.block")] | length) 回"
+    "  \(.[0].repo): review \([.[] | select(.event=="review.pass")] | length) 回 / gate 通過 \([.[] | select(.event=="gate.pass")] | length) 回 / gate ブロック \([.[] | select(.event=="gate.block")] | length) 回 / pr-docs \([.[] | select(.event=="pr_docs.done")] | length) 回"
   ) | .[]'
 
 echo ""
@@ -108,4 +108,6 @@ echo "$DATA" | jq -s -r '
    elif .event=="gate.pass" then " action=\(.action) reviewed=\(.reviewed) test_plan=\(.has_test_plan)"
    elif .event=="test_check.result" then " covered=\(.covered)/\(.planned) unplanned=\(.unplanned // 0) \(.verdict)"
    elif .event=="test_plan.created" then " cases=\(.cases)"
+   elif .event=="pr_docs.done" then " pr=#\(.pr) comments=\(.comments)"
+   elif .event=="pr_docs.prompt" then " pr=#\(.pr)"
    else "" end)'

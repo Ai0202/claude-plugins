@@ -6,8 +6,9 @@
 |---|---|---|
 | **review-loop** | `/review-loop` `/self-review` `/dev-stats` | コード品質。security / performance / simplicity の3観点で並列レビューし、修正まで自動で回す。PR をレビュー可能にする瞬間をゲートする |
 | **test-plan** | `/test-plan` `/test-check` | 仕様担保。実装前にテスト計画を作り、実装後に「計画どおりのテストが存在・実行・合格しているか」を突合する |
+| **pr-docs** | `/pr-docs` | PR の仕上げ。実装内容からタイトル・本文をテンプレートに沿って書き直し、主要な変更箇所に新卒向け解説を PR のインラインコメントで付ける。push 済み・PR ありで作業が止まったとき Stop フックが追随を促す |
 
-2つは独立していて、片方だけ入れても動く。接点は `.claude/specs/<branch>.md`(テスト計画)と `.git/` 内の合格マーカーだけ。
+3つは独立していて、どれか1つだけ入れても動く。接点は `.claude/specs/<branch>.md`(テスト計画)と `.git/` 内のマーカーだけ。
 
 ## 推奨ワークフロー
 
@@ -18,6 +19,9 @@
    ↓
 /test-check  … 計画の各 TC にテストがあり、実行して通ることを確認(計画があるブランチのみ)
 /review-loop … 3観点の品質レビュー → 修正 → 再レビューを自動反復
+   ↓
+/pr-docs     … PR 本文をテンプレートどおりに書き直し、新卒向け解説を diff 上にコメント
+               (push 済み・PR ありで作業が止まると Stop フックが促す)
    ↓
 gh pr ready  … ここでゲートがマーカーを確認。未合格なら止めて /review-loop(/test-check)を指示
 ```
@@ -45,6 +49,7 @@ Claude Code内で:
 /plugin marketplace add Ai0202/claude-plugins
 /plugin install review-loop@dev-tools
 /plugin install test-plan@dev-tools
+/plugin install pr-docs@dev-tools
 ```
 
 インストール時に **User scope(全プロジェクト)** を選択。
@@ -58,7 +63,7 @@ Claude Code内で:
       "source": { "source": "github", "repo": "Ai0202/claude-plugins" }
     }
   },
-  "enabledPlugins": { "review-loop@dev-tools": true, "test-plan@dev-tools": true }
+  "enabledPlugins": { "review-loop@dev-tools": true, "test-plan@dev-tools": true, "pr-docs@dev-tools": true }
 }
 ```
 
@@ -72,6 +77,17 @@ git add .claude && git commit -m "chore: enable dev-tools plugins"
 ```
 
 書き込まれるのはマーケットプレイスへのポインタ約10行と、空のログファイル `.claude/dev-tools.log.jsonl` だけ。ルール本体はコピーされない。
+
+## pr-docs の Stop フックが動く条件
+
+作業途中で邪魔しないよう、次を **すべて** 満たすときだけ一度止めて `/pr-docs` を促す:
+
+- 追跡ファイルに未コミットの変更が無い
+- HEAD が origin の同名ブランチに push 済み
+- 現在のブランチに OPEN な PR がある(`gh` の認証アカウントにそのリポジトリの権限が必要)
+- 最後に `/pr-docs` を実行したコミットと HEAD が違う
+
+解説コメントはソースには書かず、PR の diff 上のレビューコメント(`📘 解説:` で始まる)として付ける。本文の書き直しは、ユーザー環境に `c-refresh-pr` スキルがあればそれを使う(squash はしない)。
 
 ## レビュー差分の比較元(ベースブランチ)
 
@@ -121,6 +137,7 @@ Claude 以外(例: Codex MCP)に任せたい観点は、その agent の本文�
 | `test_plan.created` | /test-plan | cases |
 | `test_check.result` | /test-check | planned, covered, unplanned, verdict |
 | `gate.pass` / `gate.block` | gh pr ready / create / create --draft | action(pr.ready / pr.create / pr.draft), reason(review / tests), reviewed, has_test_plan |
+| `pr_docs.prompt` / `pr_docs.done` | Stop フックが促した / /pr-docs 完了 | pr, comments |
 
 集計は Claude Code 内で `/dev-stats [日数]`(どのリポジトリからでも `~/.claude/` のログを読む)。シェルから直接:
 
@@ -158,5 +175,8 @@ bash "$(find ~/.claude/plugins -path '*review-loop*' -name change-failure-rate.s
 | `plugins/review-loop/scripts/` | 比較元判定・差分取得・ゲート・合格マーカー・イベントログ・集計・変更障害率 |
 | `plugins/test-plan/commands/` | /test-plan(計画作成)、/test-check(突合・実行確認) |
 | `plugins/test-plan/scripts/` | 比較元判定・差分取得・テスト合格マーカー・イベントログ(review-loop と同じものを同梱) |
+| `plugins/pr-docs/commands/` | /pr-docs(PR 本文の書き直し + 新卒向け解説コメント) |
+| `plugins/pr-docs/hooks/hooks.json` | Stop フック: push 済み・PR ありで説明が古ければ /pr-docs を促す |
+| `plugins/pr-docs/scripts/` | Stop フック本体・追随マーカー・イベントログ |
 
 ティア基準・ループ回数は `plugins/review-loop/commands/review-loop.md` を参照。
