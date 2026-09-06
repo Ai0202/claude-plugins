@@ -8,7 +8,7 @@ allowed-tools: Bash, Read, Grep, Glob, Edit, Write, Task, Skill
 
 これは開発作業の **唯一の入口** です。test-plan / review-loop / pr-docs / register-task はこの中から呼ぶので、ユーザーがスキル名を意識する必要はない。バグ修正のような小さな作業はサイズ S として手順が薄くなる(下記)。
 
-**正式な記録は Notion のタスクページ**(設計・ADR・テスト計画・チェックリスト・PR リンク・進捗ログ)。ローカルの `.claude/atdd.local.md` はフックが機械判定に使う作業状態で、Notion の写しです。リポジトリをまたぐタスクは同じ Notion タスクを共有し、リポジトリごとに /atdd を回します。
+**正式な記録は Notion のタスクページ**(設計・ADR・テスト計画・チェックリスト・PR リンク・進捗ログ)。ローカルの `.claude/atdd.local.md` はフックが機械判定に使う作業状態で、Notion の写しです。`.claude/atdd.local.md` `.claude/specs/` `.claude/e2e/` は `.git/info/exclude` に入れてあり、**リポジトリにはコミットしない**(`git add -A` しても入らない)。リポジトリをまたぐタスクは同じ Notion タスクを共有し、リポジトリごとに /atdd を回します。
 
 ## 0. 入力を読む
 

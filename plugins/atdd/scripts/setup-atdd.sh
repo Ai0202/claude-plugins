@@ -89,10 +89,11 @@ Notion: ${TASK_URL:-(未作成。PLAN の最初に register-task で作る)}
 ## 決めたこと・メモ(1 行ずつ、日時つき)
 EOF
 
-# 状態ファイルを誤ってコミットしないようにする
-if ! git check-ignore -q "$STATE" 2>/dev/null; then
-  echo ".claude/atdd.local.md" >> "$ROOT/.git/info/exclude"
-fi
+# 状態ファイル・テスト計画・E2E の GIF を誤ってコミットしないようにする(リポジトリには何も足さない)
+EXCL="$(git rev-parse --git-dir)/info/exclude"
+for pat in ".claude/atdd.local.md" ".claude/specs/" ".claude/e2e/"; do
+  grep -qxF "$pat" "$EXCL" 2>/dev/null || echo "$pat" >> "$EXCL"
+done
 
 DIR="$(cd "$(dirname "$0")" && pwd)"
 "$DIR/events-log.sh" atdd.start max_iterations="$MAX" >/dev/null 2>&1 || true

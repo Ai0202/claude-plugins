@@ -12,7 +12,10 @@ allowed-tools: Bash, Read, Grep, Glob, Write, Edit
 1. タスクの内容を把握する。優先順位: $ARGUMENTS → 会話の文脈 → `gh pr view --json title,body`(ドラフト PR があれば) → 参照されたチケット・Slack・Notion の依頼文 → 関連する既存仕様(docs/, README, CLAUDE.md)。この中に figma.com のリンクがあれば、画面ごとに「デザイン(Figma)」節へ書く(design-check プラグインが実装後にその画面を Figma と突合する)
 2. リポジトリのテスト環境を確認する: テストフレームワーク(pytest / jest / vitest / playwright 等)、テストの置き場所、実行コマンド(package.json / Makefile / CLAUDE.md から)。**分からなければ推測せず「要確認」に書く**
 3. 不明点が実装の成否に関わる場合だけ、計画を書く前にユーザーに質問する(最大3問。細部は「要確認」として計画に残してよい)
-4. 現在のブランチ名を取得し、`.claude/specs/<ブランチ名のスラッシュを-に置換>.md` に以下の形式で書く:
+4. 現在のブランチ名を取得し、`.claude/specs/<ブランチ名のスラッシュを-に置換>.md` に以下の形式で書く。**このファイルはリポジトリにコミットしない**(正式な記録は Notion 側)。書く前に `.git/info/exclude` に `.claude/specs/` が無ければ追記する:
+   ```bash
+   EXCL="$(git rev-parse --git-dir)/info/exclude"; grep -qxF ".claude/specs/" "$EXCL" 2>/dev/null || echo ".claude/specs/" >> "$EXCL"
+   ```
 
 ```markdown
 # テスト計画: <タスク名>
