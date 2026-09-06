@@ -6,7 +6,7 @@
 |---|---|---|
 | **review-loop** | `/review-loop` `/self-review` `/dev-stats` | コード品質。security / performance / simplicity の3観点で並列レビューし、修正まで自動で回す。PR をレビュー可能にする瞬間をゲートする |
 | **test-plan** | `/test-plan` `/test-check` | 仕様担保。実装前にテスト計画を作り、実装後に「計画どおりのテストが存在・実行・合格しているか」を突合する |
-| **atdd** | `/atdd` `/cancel-atdd` | ATDD のオーケストレータ。Notion タスク / PR / チケット / 説明を入力に、**Notion のタスクページを司令塔**として 仕様の詰め(grill-me) → 設計・ADR → テスト計画 → 失敗するテスト(RED) → 実装(GREEN) → 品質レビュー → PR 更新 を 1 本に繋ぎ、Stop フックが「テスト緑・レビュー合格・PR 追随」を機械判定して完了まで回す。リポジトリをまたぐタスクは同じ Notion タスクを共有。上の 3 つが必要 |
+| **atdd** | `/atdd` `/cancel-atdd` | ATDD のオーケストレータ。Notion タスク / PR / チケット / 説明を入力に、**Notion のタスクページを司令塔**として 仕様の詰め(grilling) → 設計・ADR → テスト計画 → 失敗するテスト(RED) → 実装(GREEN) → 品質レビュー → PR 更新 を 1 本に繋ぎ、Stop フックが「テスト緑・レビュー合格・PR 追随」を機械判定して完了まで回す。リポジトリをまたぐタスクは同じ Notion タスクを共有。上の 3 つが必要 |
 | **pr-docs** | `/pr-docs` | PR の仕上げ。実装内容からタイトル・本文をテンプレートに沿って書き直し、Before/After の図(Mermaid: ERD・シーケンス・クラス・フロー、必要な種類だけ)つきの新卒向け解説を PR コメントで 1 つ付ける(2回目以降は同じコメントを更新)。push 済み・PR ありで作業が止まったとき Stop フックが追随を促す |
 
 review-loop / test-plan / pr-docs は独立していて、どれか1つだけ入れても動く。atdd はその 3 つを順に呼ぶオーケストレータ。接点は `.claude/specs/<branch>.md`(テスト計画)と `.git/` 内のマーカーだけ。
@@ -24,7 +24,7 @@ review-loop / test-plan / pr-docs は独立していて、どれか1つだけ入
 /atdd                                      # 途中の作業リストから再開
 ```
 
-0. **サイズ判定** S(バグ修正・文言など 50 行未満) / M(通常) / L(複数リポジトリ・スキーマや API 変更・認証決済)。S は grill-me・設計・ADR を飛ばし、再現テスト 1〜3 本だけで RED → GREEN → REVIEW → PR を回す。`--size` で指定もできる
+0. **サイズ判定** S(バグ修正・文言など 50 行未満) / M(通常) / L(複数リポジトリ・スキーマや API 変更・認証決済)。S は grilling・設計・ADR を飛ばし、再現テスト 1〜3 本だけで RED → GREEN → REVIEW → PR を回す。`--size` で指定もできる
 0. **Notion タスクを確保** 無ければ register-task スキルで作る(重複チェック込み。task-hub は使わない)。以後このページが司令塔: 概要 / 設計 / ADR / テスト計画 / チェックリスト(リポジトリごと) / 関連 PR / 進捗ログ
 1. **PLAN** grilling スキルがあれば仕様を問い詰めて固め、設計と ADR を Notion に書き、/test-plan でテスト計画(トロフィー型: 結合が主力、E2E は happy path 1〜2 本)を作って承認を待つ(質問があれば `<atdd>PAUSE</atdd>` で止まる)
 2. **RED** 各 TC に対応する失敗するテストを先に書き、run-tests.sh で失敗を確認

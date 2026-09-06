@@ -75,7 +75,7 @@ Notion: ${TASK_URL:-(未作成。PLAN の最初に register-task で作る)}
 
 ## 進行
 - [ ] PLAN: Notion タスクの作成/特定(register-task)
-- [ ] PLAN: 仕様の詰め(grill-me) → 設計・ADR を Notion に記録
+- [ ] PLAN: 仕様の詰め(grilling) → 設計・ADR を Notion に記録
 - [ ] PLAN: テスト計画の承認 → .claude/specs/${BRANCH//\//-}.md と Notion
 - [ ] RED: TC ごとの失敗するテスト
 - [ ] GREEN: 実装
