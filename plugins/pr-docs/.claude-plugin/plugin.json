@@ -1,5 +1,5 @@
 {
   "name": "pr-docs",
-  "version": "1.3.0",
+  "version": "1.3.1",
   "description": "PR の説明を実装内容から書き直し、Before/After の図(ERD・シーケンス・クラス・フロー)つきの新卒向け解説を PR のコメントとして付ける(/pr-docs。2回目以降は同じコメントを更新)。push 済みで PR がある状態で作業が止まったとき、Stop フックが PR の追随を促す"
 }
