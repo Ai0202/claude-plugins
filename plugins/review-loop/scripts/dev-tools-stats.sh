@@ -1,13 +1,19 @@
 #!/usr/bin/env bash
 # dev-tools-stats.sh — dev-tools(review-loop / test-plan)の利用状況を集計する
-# 使い方: dev-tools-stats.sh [-f ログファイル ...] [日数(省略時は全期間)]
+# 使い方: dev-tools-stats.sh [-f ログファイル ...] [-r owner/repo ...] [日数(省略時は全期間)]
+#   -r を付けると、その期間にマージされた自分の PR のうち dev-tools を通ったものの割合(カバー率)を gh で計算する
 # デフォルトでは ~/.claude/dev-tools.log.jsonl と、カレントのリポジトリ内
 # .claude/dev-tools.log.jsonl の両方をマージして集計する
 set -euo pipefail
 
 LOGS=()
-while [ "${1:-}" = "-f" ]; do
-  LOGS+=("$2"); shift 2
+REPOS=()
+while [ "${1:-}" = "-f" ] || [ "${1:-}" = "-r" ]; do
+  case "$1" in
+    -f) LOGS+=("$2") ;;
+    -r) REPOS+=("$2") ;;
+  esac
+  shift 2
 done
 if [ ${#LOGS[@]} -eq 0 ]; then
   [ -f "${HOME}/.claude/dev-tools.log.jsonl" ] && LOGS+=("${HOME}/.claude/dev-tools.log.jsonl")
@@ -108,6 +114,36 @@ echo "$DATA" | jq -s '
     "テスト実行回数": ($t | length),
     "テスト失敗率(%)": (if ($t|length)>0 then (([$t[] | select(.exit != 0)] | length) / ($t|length) * 100 | round) else null end)
   }'
+
+if [ ${#REPOS[@]} -gt 0 ] && command -v gh >/dev/null 2>&1; then
+  echo ""
+  echo "== 5. カバー率(マージ済み PR のうち dev-tools を通った割合)=="
+  echo "  ブランチ名でログと突合。review = /review-loop 合格、atdd = /atdd 完走、docs = /pr-docs 実行"
+  SINCE_DAY=$(if [ -n "$DAYS" ]; then date -u -d "-${DAYS} days" +%Y-%m-%d 2>/dev/null || date -u -v-"${DAYS}"d +%Y-%m-%d; else echo "2000-01-01"; fi)
+  BR_REVIEW=$(echo "$DATA" | jq -r 'select(.event=="review.pass") | .branch' | sort -u)
+  BR_ATDD=$(echo "$DATA" | jq -r 'select(.event=="atdd.done") | .branch' | sort -u)
+  BR_DOCS=$(echo "$DATA" | jq -r 'select(.event=="pr_docs.done") | .branch' | sort -u)
+  T=0; R=0; A=0; D=0
+  printf "  %-34s %6s %7s %5s %5s\n" "repo" "merged" "review" "atdd" "docs"
+  for REPO in "${REPOS[@]}"; do
+    PRS=$(gh pr list --repo "$REPO" --state merged --author @me --search "merged:>=${SINCE_DAY}" --limit 200 --json headRefName -q '.[].headRefName' 2>/dev/null || true)
+    n=0; r=0; a=0; d=0
+    while IFS= read -r br; do
+      [ -n "$br" ] || continue
+      n=$((n+1))
+      grep -qx "$br" <<<"$BR_REVIEW" && r=$((r+1))
+      grep -qx "$br" <<<"$BR_ATDD" && a=$((a+1))
+      grep -qx "$br" <<<"$BR_DOCS" && d=$((d+1))
+    done <<<"$PRS"
+    printf "  %-34s %6s %7s %5s %5s\n" "$REPO" "$n" "$r" "$a" "$d"
+    T=$((T+n)); R=$((R+r)); A=$((A+a)); D=$((D+d))
+  done
+  if [ "$T" -gt 0 ]; then
+    printf "  %-34s %6s %6s%% %4s%% %4s%%\n" "TOTAL" "$T" "$((R*100/T))" "$((A*100/T))" "$((D*100/T))"
+  else
+    echo "  (期間内にマージ済み PR なし)"
+  fi
+fi
 
 echo ""
 echo "== リポジトリ別(レビュー実行数 / ゲート通過数)=="

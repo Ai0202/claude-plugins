@@ -170,7 +170,7 @@ Claude 以外(例: Codex MCP)に任せたい観点は、その agent の本文�
 | `tests.run` | run-tests.sh | exit |
 | `atdd.start` / `atdd.iteration` / `atdd.pause` / `atdd.done` / `atdd.abort` | /atdd の各周回 | iteration, phase, tests_green, reviewed, pr_ok |
 
-集計は Claude Code 内で `/dev-stats [日数]`(どのリポジトリからでも `~/.claude/` のログを読む)。シェルから直接:
+集計は Claude Code 内で `/dev-stats 14 -r icaria-inc/oyster-apps -r icaria-inc/misignal_django` のように打つ(どのリポジトリからでも `~/.claude/` のログを読む。`-r` を付けるとマージ済み PR に対するカバー率も出る)。シェルから直接:
 
 ```bash
 # 利用状況(ゲート通過率・レビュー収束・テスト計画カバー率)。-f で他リポジトリのログを合算できる
@@ -182,6 +182,7 @@ bash "$(find ~/.claude/plugins -path '*review-loop*' -name change-failure-rate.s
 
 「うまく使えているか」の読み方:
 
+- **カバー率**(マージ済み PR のうち review / atdd / pr-docs を通った割合)→ どれくらい活用されているかの主指標
 - **ゲートのブロック率が下がる** → レビューしてから PR に出す習慣がついている
 - **1周目の平均指摘数が下がる** → 最初から品質の高いコードを書けている
 - **テスト計画のカバー率が高く、計画外の変更が少ない** → 仕様どおりに作れている
