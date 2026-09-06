@@ -80,6 +80,8 @@ User スコープでインストールすれば、手元のすべてのリポジ
 
 この使い方では Web(Claude Code on the Web)ではそのままではプラグインが入らない。リポジトリに足さずに Web でも使うには、Web の **環境設定のセットアップスクリプト**(Claude Code 起動前に走る Bash)に `docs/web-setup.sh` の内容を貼る。サンドボックスの `~/.claude/settings.json` にマーケットプレイスの参照と 4 プラグインの有効化を書き、`~/.claude/CLAUDE.md` に入口ルールを足すだけで、リポジトリには何も残らない。公開リポジトリだけを参照するのでトークンは要らない。
 
+個人スキル(`~/.claude/skills` 等。実体は private の `Ai0202/dotfiles`)も Web に持ち込める。Web の環境設定で環境変数 `DOTFILES_TOKEN` に dotfiles の Contents: Read だけを許可した fine-grained PAT を入れると、同じスクリプトが clone して `~/.claude/` にコピーする。トークンが無ければ dev-tools だけになる。
+
 注意: セットアップスクリプトは環境変数が届かない・キャッシュで更新が反映されにくい、といった報告がある。初回は `/plugin` で 4 つが入っているか確認し、入っていなければ `/plugin marketplace add Ai0202/claude-plugins` と `/plugin install ...@dev-tools` を手で打つ。個人スキル(c-create-pr、register-task など)は Web には無いので、/atdd はそれらが無いときの代替手順で動く。
 
 ## アーキテクチャ
