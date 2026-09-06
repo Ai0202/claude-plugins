@@ -1,5 +1,5 @@
 {
   "name": "atdd",
-  "version": "1.3.4",
+  "version": "1.3.5",
   "description": "ATDD の red-green ループを 1 本に繋ぐオーケストレータ(/atdd)。Notion のタスクページを司令塔にして設計・ADR・テスト計画・チェックリスト・PR リンクを書き戻す。テスト計画 → 失敗するテスト(red) → 実装(green) → 品質レビュー → PR 更新 を、Stop フックが客観条件(テスト緑・レビュー合格・PR 追随)で判定しながら回す。test-plan / review-loop / pr-docs が必要。RED/GREEN は sonnet のサブエージェント(test-writer / implementer)に委譲"
 }
