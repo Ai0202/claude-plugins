@@ -32,7 +32,7 @@ allowed-tools: Bash, Read, Grep, Glob, Edit, Write, Task, Skill
 
 迷ったら M。作業中に前提が変わったら(S のつもりが API を触る等)サイズを上げて宣言し直す。S でも RED → GREEN → REVIEW → PR の順は変えない(手順を薄くするだけで、飛ばさない)。
 
-**バグ修正のときは原因 PR を特定する**(変更障害率の計測に使う): `git log -S'<壊れた箇所の文字列>' --oneline` や `git blame` で不具合を持ち込んだコミットを見つけ、`gh pr list --search "<sha>" --state merged` などでその PR 番号を出す。特定できたら PR 本文に `Caused-by: #<番号>` を 1 行書く(6. PR で反映)。特定できなければ書かない(推測で書かない)。
+**バグ修正のときは原因 PR を特定する**(変更障害率の計測に使う): `git log -S'<壊れた箇所の文字列>' --oneline` や `git blame` で不具合を持ち込んだコミットを見つけ、`gh pr list --search "<sha>" --state merged` などでその PR 番号を出す。特定できたら PR 本文に `Caused-by: #<番号>`、調べた上で最近の変更が原因でない(古い不具合・外部要因)なら `Caused-by: unknown` と書く(6. PR で反映)。推測で番号を書かない。
 
 ## 1. Notion タスクを確保する(register-task)
 
@@ -109,7 +109,9 @@ Notion MCP が使えないときは止まらず続行し、作業リストの「
 ## 6. PR — 出荷準備
 
 - コミットして push
-- PR が無ければ `c-create-pr` スキルでドラフト PR を作る(無ければ `gh pr create --draft`)。PR 本文に Notion タスクのリンクを入れる。バグ修正で原因 PR が分かっていれば `Caused-by: #<番号>` を本文に 1 行入れる
+- PR が無ければ `c-create-pr` スキルでドラフト PR を作る(無ければ `gh pr create --draft`)。PR 本文に Notion タスクのリンクを入れる
+- **種別ラベル**を 1 つ付ける(`gh label list` で存在するものだけ。無ければ付けずに報告): `type:feature` / `type:bugfix` / `type:hotfix`(本番障害の緊急修正) / `type:chore`(依存更新・設定・リファクタ)。サイズ S のバグ修正は `type:bugfix`
+- バグ修正は本文に **`Caused-by:`** を 1 行入れる: 原因 PR が分かれば `Caused-by: #<番号>`、調べた結果「最近の変更が原因ではない」なら `Caused-by: unknown`。調べていないなら書かない
 - Skill ツールで `pr-docs:pr-docs` を呼び、PR 本文と解説コメントを更新
 - Notion の「関連 PR」に追加し、チェックとログを更新。`gh pr ready` にはしない(公開はユーザーが決める)。ステータスの「完了」への変更もユーザー(マージ後)
 

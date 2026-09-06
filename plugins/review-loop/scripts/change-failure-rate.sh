@@ -6,7 +6,9 @@
 #   CFR = 期間内にマージされた変更(PR)のうち、あとで修正・取り消しが必要になったものの割合
 #   「必要になった」は、修正 PR が原因 PR を指していることで判定する:
 #     - 修正 PR の本文に `Caused-by: #123` / `原因PR: #123` / `原因: #123`
+#     - 調べたが最近の変更が原因ではない(古い不具合・外部要因)なら `Caused-by: unknown`(不明 / なし でも可)
 #     - Revert PR はタイトル中の `(#123)` を原因とみなす
+#   修正 PR の候補: ラベル type:bugfix / type:hotfix / bugfix / hotfix / revert、タイトルが -p に一致、本文に Caused-by
 #   原因 PR が期間内にマージされていれば、その原因 PR を「失敗した変更」として数える(重複は 1 件)。
 #   原因 PR が期間より前なら「古い不具合の修正」であり、今回の CFR には数えない。
 #   原因の記載が無い修正 PR(ラベル hotfix/incident-fix/revert、またはタイトルが -p に一致)は
@@ -78,19 +80,21 @@ for REPO in "${ARGS[@]}"; do
   # 修正候補: ラベル / タイトル / 本文の Caused-by
   candidates=$(echo "$prs" | jq -c --arg re "$PATTERN" '
     [ .[] | select(
-        ( [.labels[].name] | map(ascii_downcase) | any(. == "hotfix" or . == "incident-fix" or . == "revert") )
+        ( [.labels[].name] | map(ascii_downcase) | any(test("^(type:)?(hotfix|bugfix|bug[ _-]?fix|incident-fix|revert)$")) )
         or ( .title | test($re; "i") )
-        or ( (.body // "") | test("(Caused-by|原因PR|原因)[[:space:]]*[:：][[:space:]]*#[0-9]+"; "i") )
+        or ( (.body // "") | test("(Caused-by|原因PR|原因)[[:space:]]*[:：]"; "i") )
       ) | {number, title, url, body: (.body // "")} ]')
 
   # 各候補から原因 PR 番号を抽出(本文優先、Revert はタイトルの #n)
   analyzed=$(echo "$candidates" | jq -c --argjson merged "$merged_numbers" '
     map(
       ( [ .body | capture("(Caused-by|原因PR|原因)[[:space:]]*[:：][[:space:]]*#(?<n>[0-9]+)"; "i") | .n | tonumber ] | .[0] ) as $bodycause
+      | ( .body | test("(Caused-by|原因PR|原因)[[:space:]]*[:：][[:space:]]*(unknown|none|不明|なし|特定不能)"; "i") ) as $nocause
       | ( if ($bodycause == null) and (.title | test("revert|取り消し"; "i"))
           then ([ .title | capture("#(?<n>[0-9]+)") | .n | tonumber ] | .[0])
           else $bodycause end ) as $cause
-      | . + { cause: $cause, cause_in_window: ( if $cause == null then null else (($merged | index($cause)) != null) end ) }
+      | . + { cause: $cause, nocause: $nocause,
+              cause_in_window: ( if $cause != null then (($merged | index($cause)) != null) elif $nocause then false else null end ) }
     )')
 
   failed_set=$(echo "$analyzed" | jq -c '[ .[] | select(.cause_in_window == true) | .cause ] | unique')
@@ -108,7 +112,8 @@ for REPO in "${ARGS[@]}"; do
 
   DETAIL+=$(echo "$analyzed" | jq -r --arg repo "$REPO" '.[] |
     "  [\($repo)] #\(.number) \(.title)\n    \(.url)\n    " +
-    (if .cause == null then "原因: 未記載(本文に Caused-by: #n を書くと計測に乗る)"
+    (if .nocause and .cause == null then "原因: 調査済みで該当 PR なし(Caused-by: unknown)→ 計上しない"
+     elif .cause == null then "原因: 未記載(本文に Caused-by: #n を書くと計測に乗る)"
      elif .cause_in_window then "原因: #\(.cause)(期間内 → 失敗として計上)"
      else "原因: #\(.cause)(期間外 → 古い不具合。今回は計上しない)" end)')$'\n'
 
