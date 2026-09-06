@@ -26,6 +26,8 @@ fi
 CANDIDATES=()
 [ -n "${DEV_TOOLS_USER:-}" ] && CANDIDATES+=("$DEV_TOOLS_USER")
 E=$(git config --get user.email 2>/dev/null || true); [ -n "$E" ] && CANDIDATES+=("$E")
+# GitHub の noreply メール(12345+login@users.noreply.github.com)からログイン名も候補にする
+case "$E" in *@users.noreply.github.com) CANDIDATES+=("$(echo "${E%@*}" | sed 's/^[0-9]*+//')") ;; esac
 N=$(git config --get user.name 2>/dev/null || true); [ -n "$N" ] && CANDIDATES+=("$N")
 
 match() { while IFS= read -r u; do [ -n "$u" ] && [ "$u" = "$1" ] && return 0; done <<<"$USERS"; return 1; }
