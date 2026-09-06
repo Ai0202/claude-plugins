@@ -1,13 +1,16 @@
 #!/usr/bin/env bash
 # setup-atdd.sh — /atdd の状態ファイルを作る(このファイルがある間だけ Stop フックがループを回す)
-# 使い方: setup-atdd.sh [--max-iterations N] [タスクの説明...]
+# 使い方: setup-atdd.sh [--max-iterations N] [--task-url <NotionタスクURL>] [タスクの説明...]
+# 再開時に --task-url を渡すと frontmatter の task_url を更新する
 set -euo pipefail
 
 MAX=10
+TASK_URL=""
 TASK_PARTS=()
 while [ $# -gt 0 ]; do
   case "$1" in
     --max-iterations) MAX="$2"; shift 2 ;;
+    --task-url) TASK_URL="$2"; shift 2 ;;
     *) TASK_PARTS+=("$1"); shift ;;
   esac
 done
@@ -34,6 +37,14 @@ if [ -f "$STATE" ]; then
   if [ -n "$SESSION" ]; then
     sed "s/^session_id: .*/session_id: $SESSION/" "$STATE" > "$STATE.tmp.$$" && mv "$STATE.tmp.$$" "$STATE"
   fi
+  if [ -n "$TASK_URL" ]; then
+    if grep -q '^task_url:' "$STATE"; then
+      sed "s#^task_url: .*#task_url: $TASK_URL#" "$STATE" > "$STATE.tmp.$$" && mv "$STATE.tmp.$$" "$STATE"
+    else
+      sed "s#^branch: .*#&\
+task_url: $TASK_URL#" "$STATE" > "$STATE.tmp.$$" && mv "$STATE.tmp.$$" "$STATE"
+    fi
+  fi
   DIR="$(cd "$(dirname "$0")" && pwd)"
   "$DIR/events-log.sh" atdd.resume >/dev/null 2>&1 || true
   echo "進行中の /atdd を再開します(状態: $STATE)。作業リスト:"
@@ -46,6 +57,7 @@ TASK="${TASK_PARTS[*]:-}"
 cat > "$STATE" <<EOF
 ---
 branch: $BRANCH
+task_url: $TASK_URL
 session_id: $SESSION
 iteration: 0
 max_iterations: $MAX
@@ -53,14 +65,16 @@ started: $(date -u +%Y-%m-%dT%H:%M:%SZ)
 ---
 # 作業リスト: ${TASK:-(未記入)}
 入力: ${TASK:-(未記入)}
+Notion: ${TASK_URL:-(未作成。PLAN の最初に register-task で作る)}
 
 ## 進行
-- [ ] PLAN: 仕様の詰め(grill-me)
-- [ ] PLAN: テスト計画の承認 → .claude/specs/${BRANCH//\//-}.md
+- [ ] PLAN: Notion タスクの作成/特定(register-task)
+- [ ] PLAN: 仕様の詰め(grill-me) → 設計・ADR を Notion に記録
+- [ ] PLAN: テスト計画の承認 → .claude/specs/${BRANCH//\//-}.md と Notion
 - [ ] RED: TC ごとの失敗するテスト
 - [ ] GREEN: 実装
 - [ ] REVIEW: /review-loop 合格
-- [ ] PR: push → ドラフト PR → /pr-docs
+- [ ] PR: push → ドラフト PR → /pr-docs → Notion に PR リンク
 
 ## TC 状況
 (テスト計画の承認後に TC-n を列挙する)

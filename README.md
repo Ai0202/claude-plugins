@@ -6,7 +6,7 @@
 |---|---|---|
 | **review-loop** | `/review-loop` `/self-review` `/dev-stats` | コード品質。security / performance / simplicity の3観点で並列レビューし、修正まで自動で回す。PR をレビュー可能にする瞬間をゲートする |
 | **test-plan** | `/test-plan` `/test-check` | 仕様担保。実装前にテスト計画を作り、実装後に「計画どおりのテストが存在・実行・合格しているか」を突合する |
-| **atdd** | `/atdd` `/cancel-atdd` | ATDD のオーケストレータ。チケット / PR / 説明を入力に、仕様の詰め(grill-me) → テスト計画 → 失敗するテスト(RED) → 実装(GREEN) → 品質レビュー → PR 更新 を 1 本に繋ぎ、Stop フックが「テスト緑・レビュー合格・PR 追随」を機械判定して完了まで回す。作業リストを `.claude/atdd.local.md` に持ち、セッションをまたいで再開できる。上の 3 つが必要 |
+| **atdd** | `/atdd` `/cancel-atdd` | ATDD のオーケストレータ。Notion タスク / PR / チケット / 説明を入力に、**Notion のタスクページを司令塔**として 仕様の詰め(grill-me) → 設計・ADR → テスト計画 → 失敗するテスト(RED) → 実装(GREEN) → 品質レビュー → PR 更新 を 1 本に繋ぎ、Stop フックが「テスト緑・レビュー合格・PR 追随」を機械判定して完了まで回す。リポジトリをまたぐタスクは同じ Notion タスクを共有。上の 3 つが必要 |
 | **pr-docs** | `/pr-docs` | PR の仕上げ。実装内容からタイトル・本文をテンプレートに沿って書き直し、Before/After の図(Mermaid: ERD・シーケンス・クラス・フロー、必要な種類だけ)つきの新卒向け解説を PR コメントで 1 つ付ける(2回目以降は同じコメントを更新)。push 済み・PR ありで作業が止まったとき Stop フックが追随を促す |
 
 review-loop / test-plan / pr-docs は独立していて、どれか1つだけ入れても動く。atdd はその 3 つを順に呼ぶオーケストレータ。接点は `.claude/specs/<branch>.md`(テスト計画)と `.git/` 内のマーカーだけ。
@@ -16,19 +16,20 @@ review-loop / test-plan / pr-docs は独立していて、どれか1つだけ入
 ### まとめて任せる: `/atdd <チケットURL | PR | タスクの説明>`
 
 ```
-/atdd 注文一覧に CSV エクスポートを追加する
-/atdd https://www.notion.so/...            # チケットから
+/atdd 注文一覧に CSV エクスポートを追加する    # 説明から(Notion タスクを register-task で作る)
+/atdd https://www.notion.so/...            # Notion タスクから(別リポジトリでも同じタスクを共有)
 /atdd 4517                                 # 既存 PR の続きから
 /atdd                                      # 途中の作業リストから再開
 ```
 
-1. **PLAN** grill-me 系スキルがあれば仕様を問い詰めて固め、/test-plan でテスト計画(トロフィー型: 結合が主力、E2E は happy path 1〜2 本)を作って承認を待つ(質問があれば `<atdd>PAUSE</atdd>` で止まる)
+0. **Notion タスクを確保** 無ければ register-task スキルで作る(重複チェック込み)。以後このページが司令塔: 概要 / 設計 / ADR / テスト計画 / チェックリスト(リポジトリごと) / 関連 PR / 進捗ログ
+1. **PLAN** grill-me 系スキルがあれば仕様を問い詰めて固め、設計と ADR を Notion に書き、/test-plan でテスト計画(トロフィー型: 結合が主力、E2E は happy path 1〜2 本)を作って承認を待つ(質問があれば `<atdd>PAUSE</atdd>` で止まる)
 2. **RED** 各 TC に対応する失敗するテストを先に書き、run-tests.sh で失敗を確認
 3. **GREEN** 最小の実装でテストを通す(run-tests.sh で exit 0)
 4. **REVIEW** /review-loop で品質レビュー → 合格
 5. **PR** commit → push → ドラフト PR → /pr-docs で本文と解説を更新
 
-作業リスト(進行チェック・TC 状況・決めたこと)を `.claude/atdd.local.md` に持ち、ステップごとに更新する。セッションが切れても次のセッションで `/atdd` と打てばそこから再開する。
+ローカルの作業リスト `.claude/atdd.local.md` はステップごと、Notion はフェーズの区切り(PLAN 承認 / RED / GREEN / REVIEW 合格 / PR)ごとに書き戻す。セッションが切れても `/atdd` で再開でき、Web サンドボックスなど状態ファイルが無い環境では `/atdd <Notion URL>` で Notion から作り直す。
 
 Stop フックが毎回、**マーカーだけで**完了を判定する(Claude の「終わりました」は使わない): run-tests.sh の最終結果が exit 0 でその後コードが変わっていない / レビュー合格マーカーが現在の差分と一致 / PR があれば push 済みで pr-docs が HEAD に追随。未達なら次のフェーズを指示して続行、既定 10 周で打ち切り(`--max-iterations N`)。止めるときは `/cancel-atdd`。状態ファイルは自動で `.git/info/exclude` に追加される。
 
