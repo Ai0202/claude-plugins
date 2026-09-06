@@ -6,7 +6,7 @@
 |---|---|---|
 | **review-loop** | `/review-loop` `/self-review` `/dev-stats` | コード品質。security / performance / simplicity の3観点で並列レビューし、修正まで自動で回す。PR をレビュー可能にする瞬間をゲートする |
 | **test-plan** | `/test-plan` `/test-check` | 仕様担保。実装前にテスト計画を作り、実装後に「計画どおりのテストが存在・実行・合格しているか」を突合する |
-| **pr-docs** | `/pr-docs` | PR の仕上げ。実装内容からタイトル・本文をテンプレートに沿って書き直し、主要な変更箇所に新卒向け解説を PR のインラインコメントで付ける。push 済み・PR ありで作業が止まったとき Stop フックが追随を促す |
+| **pr-docs** | `/pr-docs` | PR の仕上げ。実装内容からタイトル・本文をテンプレートに沿って書き直し、図(Mermaid)つきの短い新卒向け解説を PR コメントで 1 つ付ける(2回目以降は同じコメントを更新)。push 済み・PR ありで作業が止まったとき Stop フックが追随を促す |
 
 3つは独立していて、どれか1つだけ入れても動く。接点は `.claude/specs/<branch>.md`(テスト計画)と `.git/` 内のマーカーだけ。
 
@@ -20,7 +20,7 @@
 /test-check  … 計画の各 TC にテストがあり、実行して通ることを確認(計画があるブランチのみ)
 /review-loop … 3観点の品質レビュー → 修正 → 再レビューを自動反復
    ↓
-/pr-docs     … PR 本文をテンプレートどおりに書き直し、新卒向け解説を diff 上にコメント
+/pr-docs     … PR 本文をテンプレートどおりに書き直し、図つきの短い解説を PR コメントに
                (push 済み・PR ありで作業が止まると Stop フックが促す)
    ↓
 gh pr ready  … ここでゲートがマーカーを確認。未合格なら止めて /review-loop(/test-check)を指示
@@ -87,7 +87,7 @@ git add .claude && git commit -m "chore: enable dev-tools plugins"
 - 現在のブランチに OPEN な PR がある(`gh` の認証アカウントにそのリポジトリの権限が必要)
 - 最後に `/pr-docs` を実行したコミットと HEAD が違う
 
-解説コメントはソースには書かず、PR の diff 上のレビューコメント(`📘 解説:` で始まる)として付ける。本文の書き直しは、ユーザー環境に `c-refresh-pr` スキルがあればそれを使う(squash はしない)。
+解説はソースにも diff 上にも書かず、PR の会話欄に `<!-- pr-docs -->` で始まるコメントを 1 つだけ置く(30 行以内、Mermaid の図 1 つ、読む順番、注意点)。2 回目以降は同じコメントを書き換える。本文の書き直しは、ユーザー環境に `c-refresh-pr` スキルがあればそれを使う(squash はしない)。
 
 ## レビュー差分の比較元(ベースブランチ)
 
@@ -175,7 +175,7 @@ bash "$(find ~/.claude/plugins -path '*review-loop*' -name change-failure-rate.s
 | `plugins/review-loop/scripts/` | 比較元判定・差分取得・ゲート・合格マーカー・イベントログ・集計・変更障害率 |
 | `plugins/test-plan/commands/` | /test-plan(計画作成)、/test-check(突合・実行確認) |
 | `plugins/test-plan/scripts/` | 比較元判定・差分取得・テスト合格マーカー・イベントログ(review-loop と同じものを同梱) |
-| `plugins/pr-docs/commands/` | /pr-docs(PR 本文の書き直し + 新卒向け解説コメント) |
+| `plugins/pr-docs/commands/` | /pr-docs(PR 本文の書き直し + 図つき新卒向け解説コメント) |
 | `plugins/pr-docs/hooks/hooks.json` | Stop フック: push 済み・PR ありで説明が古ければ /pr-docs を促す |
 | `plugins/pr-docs/scripts/` | Stop フック本体・追随マーカー・イベントログ |
 
