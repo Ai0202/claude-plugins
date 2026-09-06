@@ -1,5 +1,5 @@
 {
   "name": "review-loop",
-  "version": "2.2.1",
+  "version": "2.3.0",
   "description": "コード品質(セキュリティ/パフォーマンス/シンプルさ)の自律レビューループ。/review-loop、/self-review、3観点レビューエージェント、PR をレビュー可能にする瞬間(gh pr ready / 非ドラフト create)を合格にゲートする PreToolUse フック、利用状況の計測を含む"
 }

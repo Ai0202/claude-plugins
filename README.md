@@ -26,7 +26,7 @@ review-loop / test-plan / pr-docs は独立していて、どれか1つだけ入
 
 0. **サイズ判定** S(バグ修正・文言など 50 行未満) / M(通常) / L(複数リポジトリ・スキーマや API 変更・認証決済)。S は grill-me・設計・ADR を飛ばし、再現テスト 1〜3 本だけで RED → GREEN → REVIEW → PR を回す。`--size` で指定もできる
 0. **Notion タスクを確保** 無ければ register-task スキルで作る(重複チェック込み。task-hub は使わない)。以後このページが司令塔: 概要 / 設計 / ADR / テスト計画 / チェックリスト(リポジトリごと) / 関連 PR / 進捗ログ
-1. **PLAN** grill-me 系スキルがあれば仕様を問い詰めて固め、設計と ADR を Notion に書き、/test-plan でテスト計画(トロフィー型: 結合が主力、E2E は happy path 1〜2 本)を作って承認を待つ(質問があれば `<atdd>PAUSE</atdd>` で止まる)
+1. **PLAN** grilling スキルがあれば仕様を問い詰めて固め、設計と ADR を Notion に書き、/test-plan でテスト計画(トロフィー型: 結合が主力、E2E は happy path 1〜2 本)を作って承認を待つ(質問があれば `<atdd>PAUSE</atdd>` で止まる)
 2. **RED** 各 TC に対応する失敗するテストを先に書き、run-tests.sh で失敗を確認
 3. **GREEN** 最小の実装でテストを通す(run-tests.sh で exit 0)
 4. **REVIEW** /review-loop で品質レビュー → 合格
@@ -36,7 +36,7 @@ review-loop / test-plan / pr-docs は独立していて、どれか1つだけ入
 
 Stop フックが毎回、**マーカーだけで**完了を判定する(Claude の「終わりました」は使わない): run-tests.sh の最終結果が exit 0 でその後コードが変わっていない / レビュー合格マーカーが現在の差分と一致 / PR があれば push 済みで pr-docs が HEAD に追随。未達なら次のフェーズを指示して続行、既定 10 周で打ち切り(`--max-iterations N`)。止めるときは `/cancel-atdd`。状態ファイルは自動で `.git/info/exclude` に追加される。
 
-仕様の詰めに使う grill-me は Matt Pocock のスキル集に入っている: `/plugin install mattpocock-skills@claude-plugins-official`。無くても test-plan の質問ルールで動く。
+仕様の詰めに使う 仕様の詰めに使う grilling は Matt Pocock のスキル集に入っている: `/plugin install mattpocock-skills@claude-plugins-official`(スキル名 `mattpocock-skills:grilling`)。無くても test-plan の質問ルールで動く。
 
 ### 手動で 1 つずつ
 
@@ -176,8 +176,10 @@ Claude 以外(例: Codex MCP)に任せたい観点は、その agent の本文�
 # 利用状況(ゲート通過率・レビュー収束・テスト計画カバー率)。-f で他リポジトリのログを合算できる
 bash "$(find ~/.claude/plugins -path '*review-loop*' -name dev-tools-stats.sh | head -1)" [-f ログ ...] [日数]
 
-# 変更障害率(hotfix / revert ラベル、またはタイトルが -p の正規表現に一致する PR の比率)
-bash "$(find ~/.claude/plugins -path '*review-loop*' -name change-failure-rate.sh | head -1)" -d 30 -p '^(revert|hotfix)|障害|不具合|緊急|取り消し' owner/repo
+# 変更障害率。修正 PR の本文の「Caused-by: #n」(Revert はタイトルの #n)から原因 PR を辿り、
+# 原因が期間内にマージされた変更なら「失敗した変更」として数える。--record で推移を残し --history で表示
+bash "$(find ~/.claude/plugins -path '*review-loop*' -name change-failure-rate.sh | head -1)" -d 30 --record -p '^(revert|hotfix)|障害|不具合|緊急|取り消し' owner/repo
+bash "$(find ~/.claude/plugins -path '*review-loop*' -name change-failure-rate.sh | head -1)" --history
 ```
 
 「うまく使えているか」の読み方:
@@ -187,7 +189,7 @@ bash "$(find ~/.claude/plugins -path '*review-loop*' -name change-failure-rate.s
 - **1周目の平均指摘数が下がる** → 最初から品質の高いコードを書けている
 - **テスト計画のカバー率が高く、計画外の変更が少ない** → 仕様どおりに作れている
 - **/atdd の完走率が高く、平均周回が少ない** → 計画とテストが最初から噛み合っている
-- **変更障害率が下がる** → 上の指標が実際の障害減少につながっている(最終的な成果指標)
+- **変更障害率が下がる** → 上の指標が実際の障害減少につながっている(最終的な成果指標)。数字に意味を持たせる運用は 1 つだけ: **不具合を直す PR の本文に `Caused-by: #<原因PR>` を 1 行書く**(/atdd のバグ修正は自動で特定を試みる)。原因が期間外の古い不具合は数えないので、直近のリリース品質だけが出る
 
 ## ルールの更新方法
 
