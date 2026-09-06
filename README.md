@@ -78,7 +78,9 @@ Figma 側は `get_metadata`(要素の一覧と順序)/ `get_design_context`(文�
 
 User スコープでインストールすれば、手元のすべてのリポジトリで動く。作業中に作るファイル(`.claude/atdd.local.md`、`.claude/specs/`、`.claude/e2e/`)は `.git/info/exclude` に自動で入るので、`git add -A` してもコミットされない。計測ログは `~/.claude/` 配下。PR に付くのはラベル・本文・解説コメントだけで、リポジトリのファイルには触れない。
 
-この使い方では Web(Claude Code on the Web)ではプラグインが入らない。Web でも使うにはリポジトリ側の設定(下の「2. Web」)が要る。
+この使い方では Web(Claude Code on the Web)ではそのままではプラグインが入らない。リポジトリに足さずに Web でも使うには、Web の **環境設定のセットアップスクリプト**(Claude Code 起動前に走る Bash)に `docs/web-setup.sh` の内容を貼る。サンドボックスの `~/.claude/settings.json` にマーケットプレイスの参照と 4 プラグインの有効化を書き、`~/.claude/CLAUDE.md` に入口ルールを足すだけで、リポジトリには何も残らない。公開リポジトリだけを参照するのでトークンは要らない。
+
+注意: セットアップスクリプトは環境変数が届かない・キャッシュで更新が反映されにくい、といった報告がある。初回は `/plugin` で 4 つが入っているか確認し、入っていなければ `/plugin marketplace add Ai0202/claude-plugins` と `/plugin install ...@dev-tools` を手で打つ。個人スキル(c-create-pr、register-task など)は Web には無いので、/atdd はそれらが無いときの代替手順で動く。
 
 ## アーキテクチャ
 

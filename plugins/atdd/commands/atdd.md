@@ -38,6 +38,8 @@ allowed-tools: Bash, Read, Grep, Glob, Edit, Write, Task, Skill
 
 Notion タスク URL を受け取っていなければ、Skill ツールで `register-task` を呼ぶ(重複チェック → プロジェクトの Tasks DB に作成)。**task-hub の start は呼ばない**(再開はこのコマンドの作業リストと Notion で足りる)。既存タスクが見つかればそれを使う。ステータスを「進行中」にする。
 
+`register-task` スキルが無い環境(Web など)では: Notion MCP が使えるなら、会話や PR 本文にある Notion のプロジェクト / Tasks DB を探してそこにページを作る(見つからなければユーザーに Tasks DB か既存タスクの URL を 1 問で聞く)。Notion MCP も無ければ Notion 連携を省略し、作業リストの「決めたこと」に `Notion 未作成` と残して続行する。
+
 サイズ S(下記)のときは、register-task の重複チェックだけ行い、質問はしない。
 
 得られた URL で状態ファイルを作る:
