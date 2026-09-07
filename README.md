@@ -7,7 +7,7 @@
 | **review-loop** | `/review-loop` `/self-review` `/dev-stats` | コード品質。security / performance / simplicity の3観点で並列レビューし、修正まで自動で回す。PR をレビュー可能にする瞬間をゲートする |
 | **test-plan** | `/test-plan` `/test-check` | 仕様担保。実装前にテスト計画を作り、実装後に「計画どおりのテストが存在・実行・合格しているか」を突合する |
 | **atdd** | `/atdd` `/cancel-atdd` | ATDD のオーケストレータ。Notion タスク / PR / チケット / 説明を入力に、**Notion のタスクページを司令塔**として 仕様の詰め(grilling) → 設計・ADR → テスト計画 → 失敗するテスト(RED) → 実装(GREEN) → 品質レビュー → PR 更新 を 1 本に繋ぎ、Stop フックが「テスト緑・レビュー合格・PR 追随」を機械判定して完了まで回す。リポジトリをまたぐタスクは同じ Notion タスクを共有。上の 3 つが必要 |
-| **pr-docs** | `/pr-docs` | PR の仕上げ。実装内容からタイトル・本文をテンプレートに沿って書き直し、Before/After の図(Mermaid: ERD・シーケンス・クラス・フロー、必要な種類だけ)つきの新卒向け解説を PR コメントで 1 つ付ける(2回目以降は同じコメントを更新)。push 済み・PR ありで作業が止まったとき Stop フックが追随を促す |
+| **pr-docs** | `/pr-docs` | PR の仕上げ。実装内容からタイトル・本文をテンプレートに沿って書き直し、Before/After の図(Mermaid: ERD・シーケンス・クラス・フロー、必要な種類だけ)つきの「変更の読み方」を PR コメントで 1 つ付ける(2回目以降は同じコメントを更新)。push 済み・PR ありで作業が止まったとき Stop フックが追随を促す |
 
 review-loop / test-plan / pr-docs は独立していて、どれか1つだけ入れても動く。atdd はその 3 つを順に呼ぶオーケストレータ。接点は `.claude/specs/<branch>.md`(テスト計画)と `.git/` 内のマーカーだけ。
 
@@ -226,7 +226,7 @@ bash "$(find ~/.claude/plugins -path '*review-loop*' -name change-failure-rate.s
 | `plugins/atdd/agents/` | test-writer(RED)、implementer(GREEN)。既定 model: sonnet |
 | `plugins/atdd/hooks/hooks.json` | Stop フック: 完了条件を機械判定し、未達なら次フェーズを指示して続行 |
 | `plugins/atdd/scripts/` | 状態ファイル作成・Stop フック本体・差分取得・イベントログ |
-| `plugins/pr-docs/commands/` | /pr-docs(PR 本文の書き直し + 図つき新卒向け解説コメント) |
+| `plugins/pr-docs/commands/` | /pr-docs(PR 本文の書き直し + 図つき「変更の読み方」コメント) |
 | `plugins/pr-docs/hooks/hooks.json` | Stop フック: push 済み・PR ありで説明が古ければ /pr-docs を促す |
 | `plugins/pr-docs/scripts/` | Stop フック本体・追随マーカー・イベントログ |
 
