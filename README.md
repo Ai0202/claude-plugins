@@ -123,12 +123,23 @@ git add .claude && git commit -m "chore: enable dev-tools plugins"
 
 作業途中で邪魔しないよう、次を **すべて** 満たすときだけ一度止めて `/pr-docs` を促す:
 
-- 追跡ファイルに未コミットの変更が無い
+- 追跡ファイルに未コミットの変更が無い(下の「コミットしない生成ファイル」は除く)
 - HEAD が origin の同名ブランチに push 済み
 - 現在のブランチに OPEN な PR がある(`gh` の認証アカウントにそのリポジトリの権限が必要)
 - 最後に `/pr-docs` を実行したコミットと HEAD が違う
 
 解説はソースにも diff 上にも書かず、PR の会話欄に `<!-- pr-docs -->` で始まるコメントを 1 つだけ置く(文章 20 行以内。要約は書かず、構造が変わったものだけシーケンス / ERD / フロー(必要ならクラス)の Before/After を Mermaid で描く。読む順番、注意点)。2 回目以降は同じコメントを書き換える。本文の書き直しは、ユーザー環境に `c-refresh-pr` スキルがあればそれを使う(squash はしない)。
+
+## コミットしない生成ファイルを未コミット判定から外す
+
+開発サーバーの起動などで毎回書き換わり、コミットしない追跡ファイルがあると、pr-docs / atdd の Stop フックは「未コミットの変更あり」と見なし続ける(atdd は完了できずに最大周回まで回る)。そのファイルを `git config dev-tools.ignoreDirty` に登録すると判定から外れる。値はリポジトリ直下からの glob(`*` は `/` をまたがない)で、複数登録できる。
+
+```bash
+git config --add dev-tools.ignoreDirty 'frontend/craif/vite.config.ts'
+git config --add dev-tools.ignoreDirty 'frontend/craif/src/apps/*/index.ts'
+```
+
+`git config` はそのリポジトリのローカル設定で、worktree にも効く。レビュー差分(`review-diff.sh`)からは外さない。
 
 ## レビュー差分の比較元(ベースブランチ)
 
