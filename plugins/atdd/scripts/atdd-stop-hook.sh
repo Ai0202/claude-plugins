@@ -6,7 +6,7 @@
 # 完了条件(すべて .git/ 内のマーカーで判定。Claude の自己申告は使わない):
 #   1. テストが緑: claude-tests-last の exit が 0 で、記録された差分ハッシュが現在の差分と一致
 #   2. 品質レビュー合格: claude-review-passed が現在の差分ハッシュと一致
-#   3. PR が最新: 追跡ファイルに未コミット変更が無く、push 済みで、claude-pr-docs が HEAD と一致
+#   3. PR が最新: 追跡ファイルに未コミット変更が無く(dev-tools.ignoreDirty に当たるものは除く)、push 済みで、claude-pr-docs が HEAD と一致
 #      (PR が無い・gh が使えない場合は 3 を免除)
 # 打ち切り: iteration >= max_iterations
 # 一時停止: 直前の Claude の発言に <atdd>PAUSE</atdd> が含まれる(ユーザーへの質問待ち)。状態は残す
@@ -74,7 +74,7 @@ if command -v gh >/dev/null 2>&1; then
 fi
 if [ -n "$PR_NUM" ]; then
   PR_OK=false
-  CLEAN=false; [ -z "$(git status --porcelain --untracked-files=no)" ] && CLEAN=true
+  CLEAN=false; [ -z "$(bash "$DIR/dirty-tracked.sh")" ] && CLEAN=true
   UP=$(git rev-parse --abbrev-ref '@{u}' 2>/dev/null || echo "")
   PUSHED=false; [ -n "$UP" ] && [ "$(git rev-parse HEAD)" = "$(git rev-parse "$UP" 2>/dev/null)" ] && PUSHED=true
   if $CLEAN && $PUSHED && [ -f "$GIT_DIR/claude-pr-docs" ] && [ "$(cat "$GIT_DIR/claude-pr-docs")" = "$PR_NUM $(git rev-parse HEAD)" ]; then

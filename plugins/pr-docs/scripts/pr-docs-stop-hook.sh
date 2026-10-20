@@ -4,7 +4,7 @@
 # 追いついていないとき、一度だけ止めて /pr-docs の実行を指示する。
 #
 # 一区切りの判定(すべて満たすときだけ動く。作業途中では邪魔しない):
-#   - 追跡ファイルに未コミットの変更が無い
+#   - 追跡ファイルに未コミットの変更が無い(dev-tools.ignoreDirty に当たるものは除く)
 #   - HEAD が upstream(origin の同名ブランチ)に push 済み
 #   - 現在のブランチに OPEN な PR がある(gh が使えること)
 #   - .git/claude-pr-docs に記録された「最後に説明を更新したコミット」が HEAD と違う
@@ -28,7 +28,7 @@ git rev-parse --is-inside-work-tree >/dev/null 2>&1 || exit 0
 command -v gh >/dev/null 2>&1 || exit 0
 
 # 作業途中(未コミットの変更あり)なら何もしない
-[ -z "$(git status --porcelain --untracked-files=no 2>/dev/null)" ] || exit 0
+[ -z "$(bash "$(cd "$(dirname "$0")" && pwd)/dirty-tracked.sh")" ] || exit 0
 
 BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "")
 case "$BRANCH" in ""|HEAD|main|master|develop) exit 0 ;; esac
